@@ -4,37 +4,41 @@ package sqlpt
 // TODO: Restrict column types.
 trait Rows[A <: Product] {
   def cols: A
+
+  def join[B <: Product](right: Rows[B])(on: (A, B) => Comparison) =
+    InnerJoin(this, right)(on)
+}
+
+trait Selectable[A <: Product] {this: Rows[A] =>
+  def select[B <: Product](p: A => B): Selection[B, A] =
+    Selection(p(cols), this, Set.empty)
+
+  def selectDistinct[B <: Product](p: A => B): Selection[B, A] =
+    Selection(p(cols), this, Set.empty).distinct
 }
 
 case class Selection[A <: Product, S <: Product](
   cols: A,
   source: Rows[S],
   filters: Set[Comparison],
-  distinct: Boolean = false
+  isDistinct: Boolean = false
 ) extends Rows[A] {
-  // TODO: Restrict column types (you can return anything now).
-  def select[C <: Product](p: A => C): Selection[C, A] =
-    Selection[C, A](p(cols), this, filters)
-
-  def selectDistinct[C <: Product](p: A => C): Selection[C, A] =
-    Selection[C, A](p(cols), this, filters, distinct = true)
+  def distinct =
+    copy(isDistinct = true)
 
   def where(f: S => Comparison): Selection[A, S] =
     copy(filters = filters + f(source.cols))
-
-  def join[B <: Product](right: Rows[B])(on: (A, B) => Comparison) =
-    Join(this, right)(on)
 }
 
 // Another alternative is to to make this a Rows[A ++ B].
-case class Join[A <: Product, B <: Product](
+case class InnerJoin[A <: Product, B <: Product](
   left:  Rows[A],
   right: Rows[B]
-)(on: (A, B) => Comparison) extends Rows[(A, B)] {
+)(on: (A, B) => Comparison) extends Rows[(A, B)] with Selectable[(A, B)] {
   override def cols = (left.cols, right.cols)
 }
 
-case class Table[A <: Product](name: String, cols: A) extends Rows[A]
+case class Table[A <: Product](name: String, cols: A) extends Rows[A] with Selectable[A]
 
 object DefTable {
   class TableColCreator(tableName: String) {
@@ -42,7 +46,7 @@ object DefTable {
     def colNum(name: String) = Num(tableName, name)
   }
 
-  // TODO: The function can still return a product of anything.
+  // TODO: The function can still return a Product of anything.
   def apply[A <: Product](name: String)(f: TableColCreator => A): Table[A] =
     Table(name, f(new TableColCreator(name)))
 }
@@ -69,7 +73,16 @@ object Usage {
     c.colNum("loan_amount")
   )}
 
+  val creditCards = DefTable("credit_cards") {c => (
+    c.colStr("card_id"),
+    c.colStr("customer_id")
+  )}
+
   val selection = carLoans.select {case (custId, _) => custId}
 
   val filtered = carLoans.where {case (_, amnt) => amnt === 33}
+
+  val joined = selection.join(creditCards) {case (custId, cc) => custId === cc._1}
+
+  joined.select {case (custId, _) => custId}.where {case (_, (x, y)) => y === "zcv"}.distinct
 }
