@@ -1,6 +1,5 @@
 package sqlpt
 
-// TODO: More than 22 columns?
 // TODO: Restrict column types.
 trait Rows[A <: Product] {
   def cols: A
@@ -30,7 +29,6 @@ case class Selection[A <: Product, S <: Product](
     copy(filters = filters + f(source.cols))
 }
 
-// Another alternative is to to make this a Rows[A ++ B].
 case class InnerJoin[A <: Product, B <: Product](
   left:  Rows[A],
   right: Rows[B]
@@ -40,15 +38,15 @@ case class InnerJoin[A <: Product, B <: Product](
 
 case class Table[A <: Product](name: String, cols: A) extends Rows[A] with Selectable[A]
 
-object DefTable {
-  class TableColCreator(tableName: String) {
-    def colStr(name: String) = Str(tableName, name)
-    def colNum(name: String) = Num(tableName, name)
-  }
+trait TableDef {
+  type Columns <: Product
+  def name: String
+  def cols: Columns
 
-  // TODO: The function can still return a Product of anything.
-  def apply[A <: Product](name: String)(f: TableColCreator => A): Table[A] =
-    Table(name, f(new TableColCreator(name)))
+  final def table = Table(name, cols)
+
+  protected implicit def str2StrColumn(colName: String): Str = Str(name, colName)
+  protected implicit def str2NumColumn(colName: String): Num = Num(name, colName)
 }
 
 sealed trait Column {
@@ -68,21 +66,33 @@ object Usage {
   implicit def table2Selection[A <: Product](t: Table[A]): Selection[A, A] =
     Selection(t.cols, t, Set.empty[Comparison])
 
-  val carLoans = DefTable("car_loans") {c => (
-    c.colStr("customer_id"),
-    c.colNum("loan_amount")
-  )}
+  object CarLoans extends TableDef {
+    val name = "car_loans"
 
-  val creditCards = DefTable("credit_cards") {c => (
-    c.colStr("card_id"),
-    c.colStr("customer_id")
-  )}
+    case class Columns(
+      customerId: Str = "cust_id",
+      amount:     Num = "amnt"
+    )
 
-  val selection = carLoans.select {case (custId, _) => custId}
+    val cols = Columns()
+  }
 
-  val filtered = carLoans.where {case (_, amnt) => amnt === 33}
+  object CreditCards extends TableDef {
+    val name = "credit_cards"
 
-  val joined = selection.join(creditCards) {case (custId, cc) => custId === cc._1}
+    case class Columns(
+      cardId:     Str = "card_id",
+      customerId: Str = "cust_id"
+    )
 
-  joined.select {case (custId, _) => custId}.where {case (_, (x, y)) => y === "zcv"}.distinct
+    val cols = Columns()
+  }
+
+  val selection = CarLoans.table.select {_.customerId}
+
+  val filtered = CarLoans.table.where {_.amount === 100}
+
+  val joined = selection.join(CreditCards.table) {case (custId, creditCard) => custId === creditCard.customerId}
+
+  joined.select {case (custId, _) => custId}.where {case (_, cc) => cc.cardId === "zcv"}.distinct
 }
