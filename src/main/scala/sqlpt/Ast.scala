@@ -6,6 +6,21 @@ trait Rows[A <: Product] {
 
   def join[B <: Product](right: Rows[B])(on: (A, B) => Comparison) =
     InnerJoin(this, right)(on)
+
+  def groupBy[G <: Product](selectGroupingCols: A => G) =
+    Grouped[G, A](selectGroupingCols(cols), this, Set.empty)
+}
+
+sealed trait Aggregate
+case class Count(col: Column) extends Aggregate
+case class Sum(col: Column) extends Aggregate
+
+case class Grouped[G <: Product, S <: Product](groupingCols: G, source: Rows[S], filters: Set[Comparison]) {
+  class Aggregator {
+    def count(c: S => Column)
+  }
+
+  def select[A <: Product](f: G => A) = ???
 }
 
 trait Selectable[A <: Product] {this: Rows[A] =>
@@ -95,4 +110,6 @@ object Usage {
   val joined = selection.join(CreditCards.table) {case (custId, creditCard) => custId === creditCard.customerId}
 
   joined.select {case (custId, _) => custId}.where {case (_, cc) => cc.cardId === "zcv"}.distinct
+
+  CarLoans.table.groupBy {_.customerId}.select {xxx => xxx}
 }
