@@ -11,24 +11,12 @@ trait Rows[A <: Product] {
     Grouped[G, A](selectGroupingCols(cols), this, Set.empty)
 }
 
-sealed trait Aggregate
-case class Count(col: Column) extends Aggregate
-case class Sum(col: Column) extends Aggregate
-
-case class Grouped[G <: Product, S <: Product](groupingCols: G, source: Rows[S], filters: Set[Comparison]) {
-  class Aggregator {
-    def count(c: S => Column)
-  }
-
-  def select[A <: Product](f: G => A) = ???
-}
-
 trait Selectable[A <: Product] {this: Rows[A] =>
   def select[B <: Product](p: A => B): Selection[B, A] =
     Selection(p(cols), this, Set.empty)
 
   def selectDistinct[B <: Product](p: A => B): Selection[B, A] =
-    Selection(p(cols), this, Set.empty).distinct
+    select(p).distinct
 }
 
 case class Selection[A <: Product, S <: Product](
@@ -37,7 +25,7 @@ case class Selection[A <: Product, S <: Product](
   filters: Set[Comparison],
   isDistinct: Boolean = false
 ) extends Rows[A] {
-  def distinct =
+  def distinct: Selection[A, S] =
     copy(isDistinct = true)
 
   def where(f: S => Comparison): Selection[A, S] =
@@ -77,6 +65,31 @@ case class Num(table: String, name: String) extends Column
 sealed trait Comparison
 case class Equality[A, B](left: A, right: B) extends Comparison
 
+sealed trait AggregationOp
+case class Count(col: Column) extends AggregationOp
+case class Sum(col: Column) extends AggregationOp
+
+case class Grouped[G <: Product, S <: Product](groupingCols: G, source: Rows[S], sourceFilters: Set[Comparison]) {
+  class Aggregator {
+    def count(c: S => Column) =
+      Count(c(source.cols))
+  }
+
+  def select[A <: Product](f: (G, Aggregator) => A) =
+    Aggregation(f(groupingCols, new Aggregator), groupingCols, source, sourceFilters, Set.empty)
+}
+
+case class Aggregation[A <: Product, G <: Product, S <: Product](
+  cols: A,
+  groupingCols: G,
+  source: Rows[S],
+  sourceFilters: Set[Comparison],
+  groupFilters: Set[Comparison]
+) extends Rows[A] {
+  def having(f: A => Comparison) =
+    copy(groupFilters = groupFilters + f(cols))
+}
+
 object Usage {
   implicit def table2Selection[A <: Product](t: Table[A]): Selection[A, A] =
     Selection(t.cols, t, Set.empty[Comparison])
@@ -97,13 +110,14 @@ object Usage {
 
     case class Columns(
       cardId:     Str = "card_id",
-      customerId: Str = "cust_id"
+      customerId: Str = "cust_id",
+      expiryDate: Str = "expy_d"
     )
 
     val cols = Columns()
   }
 
-  val selection = CarLoans.table.select {_.customerId}
+  val selection = CarLoans.table.select(_.customerId).where(_.amount === 22)
 
   val filtered = CarLoans.table.where {_.amount === 100}
 
@@ -111,5 +125,12 @@ object Usage {
 
   joined.select {case (custId, _) => custId}.where {case (_, cc) => cc.cardId === "zcv"}.distinct
 
-  CarLoans.table.groupBy {_.customerId}.select {xxx => xxx}
+  CreditCards.table
+    .groupBy {r => (r.customerId, r.expiryDate)}
+    .select {case ((custId, expD), agg) => (
+      expD,
+      agg.count(_.cardId)
+    )}//.having {case (_, count) =>
+//      count === 3   // TODO: Doesn't compile.
+//    }
 }
