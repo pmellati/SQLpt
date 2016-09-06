@@ -6,17 +6,20 @@ trait Rows[A <: Product] {
 
   def join[B <: Product](right: Rows[B])(on: (A, B) => Comparison) =
     InnerJoin(this, right)(on)
-
-  def groupBy[G <: Product](selectGroupingCols: A => G) =
-    Grouped[G, A](selectGroupingCols(cols), this, Set.empty)
 }
 
-trait Selectable[A <: Product] {this: Rows[A] =>
-  def select[B <: Product](p: A => B): Selection[B, A] =
-    Selection(p(cols), this, Set.empty)
+case class Filtered[S <: Product](source: Rows[S], sourceFilters: Set[Comparison]) {
+  def where(f: S => Comparison): Filtered[S] =
+    copy(sourceFilters = sourceFilters + f(source.cols))
 
-  def selectDistinct[B <: Product](p: A => B): Selection[B, A] =
+  def select[B <: Product](p: S => B): Selection[B, S] =
+    Selection(p(source.cols), source, sourceFilters)
+
+  def selectDistinct[B <: Product](p: S => B): Selection[B, S] =
     select(p).distinct
+
+  def groupBy[G <: Product](selectGroupingCols: S => G) =
+    Grouped[G, S](selectGroupingCols(source.cols), source, sourceFilters)
 }
 
 case class Selection[A <: Product, S <: Product](
@@ -27,19 +30,16 @@ case class Selection[A <: Product, S <: Product](
 ) extends Rows[A] {
   def distinct: Selection[A, S] =
     copy(isDistinct = true)
-
-  def where(f: S => Comparison): Selection[A, S] =
-    copy(filters = filters + f(source.cols))
 }
 
 case class InnerJoin[A <: Product, B <: Product](
   left:  Rows[A],
   right: Rows[B]
-)(on: (A, B) => Comparison) extends Rows[(A, B)] with Selectable[(A, B)] {
+)(on: (A, B) => Comparison) extends Rows[(A, B)] {
   override def cols = (left.cols, right.cols)
 }
 
-case class Table[A <: Product](name: String, cols: A) extends Rows[A] with Selectable[A]
+case class Table[A <: Product](name: String, cols: A) extends Rows[A]
 
 trait TableDef {
   type Columns <: Product
@@ -91,8 +91,8 @@ case class Aggregation[A <: Product, G <: Product, S <: Product](
 }
 
 object Usage {
-  implicit def table2Selection[A <: Product](t: Table[A]): Selection[A, A] =
-    Selection(t.cols, t, Set.empty[Comparison])
+  implicit def rows2Filtered[A <: Product](rows: Rows[A]): Filtered[A] =
+    Filtered(rows, Set.empty)
 
   object CarLoans extends TableDef {
     val name = "car_loans"
@@ -117,15 +117,17 @@ object Usage {
     val cols = Columns()
   }
 
-  val selection = CarLoans.table.select(_.customerId).where(_.amount === 22)
-
-  val filtered = CarLoans.table.where {_.amount === 100}
+  val selection = CarLoans.table.where(_.amount === 22).select(_.customerId)
 
   val joined = selection.join(CreditCards.table) {case (custId, creditCard) => custId === creditCard.customerId}
 
-  joined.select {case (custId, _) => custId}.where {case (_, cc) => cc.cardId === "zcv"}.distinct
+  joined
+    .where {case (_, cc) => cc.cardId === "zcv"}
+    .selectDistinct {case (custId, _) => custId}
 
   CreditCards.table
+    .where {_.expiryDate === "2016-12-21"}
+    .where {_.customerId === "CI232354362"}
     .groupBy {r => (r.customerId, r.expiryDate)}
     .select {case ((custId, expD), agg) => (
       expD,
