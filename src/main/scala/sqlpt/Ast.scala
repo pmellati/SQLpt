@@ -53,21 +53,24 @@ trait TableDef {
 }
 
 sealed trait Column {
-  def table: String
-  def name:  String
-
+  // TODO: Push ops to sub-types for type-safety.
   def ===[B](right: B) =
     Equality(this, right)
 }
-case class Str(table: String, name: String) extends Column
-case class Num(table: String, name: String) extends Column
+
+sealed trait SimpleColumn extends Column {
+  def table: String
+  def name:  String
+}
+case class Str(table: String, name: String) extends SimpleColumn
+case class Num(table: String, name: String) extends SimpleColumn
 
 sealed trait Comparison
 case class Equality[A, B](left: A, right: B) extends Comparison
 
-sealed trait AggregationOp
-case class Count(col: Column) extends AggregationOp
-case class Sum(col: Column) extends AggregationOp
+sealed trait AggregationColumn extends Column
+case class Count(col: Column) extends AggregationColumn
+case class Sum(col: Column) extends AggregationColumn
 
 case class Grouped[G <: Product, S <: Product](groupingCols: G, source: Rows[S], sourceFilters: Set[Comparison]) {
   class Aggregator {
@@ -132,7 +135,7 @@ object Usage {
     .select {case ((custId, expD), agg) => (
       expD,
       agg.count(_.cardId)
-    )}//.having {case (_, count) =>
-//      count === 3   // TODO: Doesn't compile.
-//    }
+    )}.having {case (_, count) =>
+      count === 3
+    }
 }
