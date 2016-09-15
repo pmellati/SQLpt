@@ -1,5 +1,7 @@
 package sqlpt.columndesign1
 
+import sqlpt.columndesign1.Column.NullableOps.IsNull
+
 
 sealed trait Column[+T <: Column.Type]
 
@@ -7,13 +9,15 @@ object Column {
   sealed trait Type
 
   object Type {
-    case object Str extends Type
-    case object Num extends Type    // We support the same ops for all numeric types, so they are all represented by `Num`.
+    case object Str  extends Type
+    case object Num  extends Type    // We support the same ops for all numeric types, so they are all represented by `Num`.
+    case object Bool extends Type
 
     case class Nullable[T <: Type]() extends Type
 
-    type Str = Str.type
-    type Num = Num.type
+    type Str  = Str.type
+    type Num  = Num.type
+    type Bool = Bool.type
   }
 
   import Type._
@@ -41,11 +45,26 @@ object Column {
     implicit def toLiteralNum(n: Double): LiteralNum = LiteralNum(n)
   }
 
-  object Usage {
-    implicit class NullableOps[C[_ <: Type] <: Column[_], T <: Type](col: C[Nullable[T]]) {
-      def isNull: Column[Num] = ???
-    }
+  object NullableOps {
+    // TODO: Can type param 'C' be removed?
+    case class IsNull[C[_ <: Type] <: Column[_], T <: Type](column: C[Nullable[T]]) extends Column[Bool]
+  }
 
+  implicit class RichColumnOfNullable[C[_ <: Type] <: Column[_], T <: Type](col: C[Nullable[T]]) {
+    def isNull: Column[Bool] =
+      IsNull(col)
+
+    def map[C2[_ <: Type] <: Column[_], T2 <: Type](f: C[T] => C2[T2]): C2[Nullable[T2]] =
+      f(get).asInstanceOf[C2[Nullable[T2]]]
+
+    def flatMap[C2[_ <: Type] <: Column[_], T2 <: Type](f: C[T] => C2[Nullable[T2]]): C2[Nullable[T2]] =
+      f(get)
+
+    def get: C[T] =
+      col.asInstanceOf[C[T]]
+  }
+
+  object Usage {
     val balance = SourceColumn[Num]("credit_cards", "balance")
     val custId  = SourceColumn[Str]("credit_cards", "cust_id")
 
@@ -64,6 +83,8 @@ object Column {
 
     custAge.isNull
 
-//    custAge * 5.0
+    val multipliedNullable = custAge.map(_ * 5.0)
+
+    val twoNullables = custAge.flatMap(age1 => custAge.map(age2 => age1 * age2))
   }
 }
