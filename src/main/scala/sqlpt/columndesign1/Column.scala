@@ -10,6 +10,8 @@ object Column {
     case object Str extends Type
     case object Num extends Type    // We support the same ops for all numeric types, so they are all represented by `Num`.
 
+    case class Nullable[T <: Type]() extends Type
+
     type Str = Str.type
     type Num = Num.type
   }
@@ -34,12 +36,16 @@ object Column {
   }
 
   object Literal {
-    case class Num(n: Double) extends Column[Type.Num]
+    case class LiteralNum(n: Double) extends Column[Type.Num]
 
-    implicit def toLiteralNum(n: Double): Num = Num(n)
+    implicit def toLiteralNum(n: Double): LiteralNum = LiteralNum(n)
   }
 
   object Usage {
+    implicit class NullableOps[C[_ <: Type] <: Column[_], T <: Type](col: C[Nullable[T]]) {
+      def isNull: Column[Num] = ???
+    }
+
     val balance = SourceColumn[Num]("credit_cards", "balance")
     val custId  = SourceColumn[Str]("credit_cards", "cust_id")
 
@@ -53,5 +59,11 @@ object Column {
     val maxNum = Max(balance * -1.0)
     val maxCustId = Max(custId)
 //    val tripledStr = custId * 3       // Shouldn't compile.
+
+    val custAge = SourceColumn[Nullable[Num]]("credit_cards", "cust_age")
+
+    custAge.isNull
+
+//    custAge * 5.0
   }
 }
