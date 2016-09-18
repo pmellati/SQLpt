@@ -1,9 +1,9 @@
-package sqlpt.columndesign1
+package sqlpt
 
-import sqlpt.columndesign1.Column.NullableOps.IsNull
+import sqlpt.Column.NullableOps.IsNull
 
 
-sealed trait Column[+T <: Column.Type]
+sealed trait Column[+T <: Column.Type] extends Product
 
 object Column {
   sealed trait Type
@@ -26,23 +26,34 @@ object Column {
 
   object Arithmetic {
     case class Multiplication(left: Column[Num], right: Column[Num]) extends Column[Num]
+    case class Equals[T <: Type](left: Column[T], right: Column[T]) extends Column[Bool]
 
     implicit class NumOps(self: Column[Num]) {
       def *(other: Column[Num]) =
         Multiplication(self, other)
     }
+
+    implicit class EqualityOps[T <: Type](self: Column[T]) {
+      def ===(other: Column[T]) =
+        Equals(self, other)
+    }
   }
 
-  object Aggregation {
-    case class Count(col: Column[Type]) extends Column[Num]
+  object AggregationFuncs {
+    case class Count(col: Column[_ <: Type]) extends Column[Num]
     case class Sum(col: Column[Num]) extends Column[Num]
     case class Max[T <: Type](col: Column[T]) extends Column[T]
   }
 
   object Literal {
-    case class LiteralNum(n: Double) extends Column[Type.Num]
+    case class LiteralNum(n: Double) extends Column[Num]
+    case class LiteralStr(s: String) extends Column[Str]
 
-    implicit def toLiteralNum(n: Double): LiteralNum = LiteralNum(n)
+    implicit def toLiteralNum[N : Numeric](n: N): LiteralNum =
+      LiteralNum(implicitly[Numeric[N]].toDouble(n))
+
+    implicit def toLiteralStr(s: String): LiteralStr =
+      LiteralStr(s)
   }
 
   object NullableOps {
@@ -69,7 +80,7 @@ object Column {
     val custId  = SourceColumn[Str]("credit_cards", "cust_id")
 
     import Arithmetic._
-    import Aggregation._
+    import AggregationFuncs._
     import Literal._
 
     val tripledCol = balance * 3.0      // Should compile.
