@@ -27,6 +27,7 @@ object Column {
   object Arithmetic {
     case class Multiplication(left: Column[Num], right: Column[Num]) extends Column[Num]
     case class Equals[T <: Type](left: Column[T], right: Column[T]) extends Column[Bool]
+    case class And(left: Column[Bool], right: Column[Bool]) extends Column[Bool]
 
     implicit class NumOps(self: Column[Num]) {
       def *(other: Column[Num]) =
@@ -36,6 +37,11 @@ object Column {
     implicit class EqualityOps[T <: Type](self: Column[T]) {
       def ===(other: Column[T]) =
         Equals(self, other)
+    }
+
+    implicit class BoolColumnOps (self: Column[Bool]) {
+      def and(other: Column[Bool]) =
+        And(self, other)
     }
   }
 

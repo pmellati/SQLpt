@@ -27,7 +27,7 @@ case class Filtered[S <: Product](source: Rows[S], sourceFilters: Set[Column[Boo
 case class Selection[A <: Product, S <: Product](
   cols: A,
   source: Rows[S],
-  filters: Set[Column[Bool]],
+  filters: Set[Column[Bool]],   // TODO: Does this need to be a Set? We can AND.
   isDistinct: Boolean = false
 ) extends Rows[A] {
   def distinct: Selection[A, S] =
