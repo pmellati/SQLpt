@@ -49,9 +49,8 @@ trait TableDef {
   def cols: Columns
 
   final def table = Table(name, cols)
-
-  protected implicit def str2StrColumn(colName: String): Column[Str] = SourceColumn[Str](name, colName)
-  protected implicit def str2NumColumn(colName: String): Column[Num] = SourceColumn[Num](name, colName)
+  
+  protected implicit def str2Column[T <: Type](colName: String): Column[T] = SourceColumn[T](name, colName)
 }
 
 case class Grouped[G <: Product, S <: Product](groupingCols: G, source: Rows[S], sourceFilters: Set[Column[Bool]]) {
@@ -96,7 +95,7 @@ object Usage {
     case class Columns(
       cardId:     Column[Str] = "card_id",
       customerId: Column[Str] = "cust_id",
-      expiryDate: Column[Str] = "expy_d"
+      expiryDate: Column[Nullable[Str]] = "expy_d"
     )
 
     val cols = Columns()
@@ -113,7 +112,7 @@ object Usage {
     .selectDistinct {case (custId, _) => custId}
 
   CreditCards.table
-    .where {_.expiryDate === "2016-12-21"}
+    .where {_.expiryDate.map(_ === "2016-12-21")}
     .where {_.customerId === "CI232354362"}
     .groupBy {r => (r.customerId, r.expiryDate)}
     .select {case ((custId, expD), agg) => (
