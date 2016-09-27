@@ -4,7 +4,7 @@ import sqlpt.Column._, Type._, Arithmetic._, AggregationFuncs._
 
 // TODO: Restrict column types.
 trait Rows[Cols <: Product] {
-  def cols: Cols
+  private[sqlpt] def cols(n: Nothing): Cols
 
   def join[OtherCols <: Product](right: Rows[OtherCols])(on: (Cols, OtherCols) => Column[Bool]) =
     InnerJoin(this, right, on)
@@ -30,7 +30,8 @@ case class Selection[Cols <: Product, Src <: Product](
   filters:    Set[Src => Column[Bool]],   // TODO: Does this need to be a Set? We can AND.
   isDistinct: Boolean = false
 ) extends Rows[Cols] {
-  override def cols = projection(source.cols)  // TODO: Not sure if this makes sense.
+  private[sqlpt] override def cols(n: Nothing) =
+    projection(source.cols(n))
 
   def distinct: Selection[Cols, Src] =
     copy(isDistinct = true)
@@ -39,11 +40,16 @@ case class Selection[Cols <: Product, Src <: Product](
 case class InnerJoin[LeftCols <: Product, RightCols <: Product](
   left:  Rows[LeftCols],
   right: Rows[RightCols],
-  on:    (LeftCols, RightCols) => Column[Bool]) extends Rows[(LeftCols, RightCols)] {
-  override def cols = (left.cols, right.cols)
+  on:    (LeftCols, RightCols) => Column[Bool]
+) extends Rows[(LeftCols, RightCols)] {
+  private[sqlpt] override def cols(n: Nothing) =
+    (left.cols(n), right.cols(n))
 }
 
-case class Table[Cols <: Product](name: String, cols: Cols) extends Rows[Cols]
+case class Table[Cols <: Product](name: String, columns: Cols) extends Rows[Cols] {
+  private[sqlpt] override def cols(n: Nothing) =
+    columns
+}
 
 trait TableDef {
   type Columns <: Product
@@ -62,7 +68,7 @@ case class Grouped[GrpCols <: Product, Src <: Product](
 ) {
   class Aggregator {
     def count(c: Src => Column[_ <: Type]) =
-      Count(c(source.cols))
+      Count(c)
   }
 
   def select[Cols <: Product](f: (GrpCols, Aggregator) => Cols) = {
@@ -70,19 +76,19 @@ case class Grouped[GrpCols <: Product, Src <: Product](
       f(s2g(s), new Aggregator)
     }
 
-    Aggregation[Cols, GrpCols, Src, Aggregator](columnSelection, groupingCols, source, sourceFilters, Set.empty)
+    Aggregation[Cols, GrpCols, Src](columnSelection, groupingCols, source, sourceFilters, Set.empty)
   }
 }
 
-case class Aggregation[Cols <: Product, GrpCols <: Product, Src <: Product, AggrT](
+case class Aggregation[Cols <: Product, GrpCols <: Product, Src <: Product](
   projection:    (Src, Src => GrpCols) => Cols,
   groupingCols:  Src => GrpCols,
   source:        Rows[Src],
   sourceFilters: Set[Src => Column[Bool]],
   groupFilters:  Set[Cols => Column[Bool]]
 ) extends Rows[Cols] {
-  override def cols: Cols =
-    projection(source.cols, groupingCols)
+  private[sqlpt] override def cols(n: Nothing): Cols =
+    projection(source.cols(n), groupingCols)
 
   def having(f: Cols => Column[Bool]) =
     copy(groupFilters = groupFilters + f)
