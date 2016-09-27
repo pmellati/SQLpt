@@ -2,10 +2,12 @@ package sqlpt.hive
 
 import sqlpt._, Column.Arithmetic._
 
-//object HqlWriter {
-//  type Hql = String
-//
-//  def toHql(rows: Rows[_]): Hql = rows match {
+object HqlWriter {
+  type Hql = String
+
+  def toHql(rows: Rows[_]): Hql = ???
+
+//    rows match {
 //    case selection: Selection[_, _] =>
 //      val selectedColumns =
 //        selection.cols.productIterator
@@ -24,6 +26,6 @@ import sqlpt._, Column.Arithmetic._
 //         |$whereClause
 //      """.stripMargin
 //  }
-//
-//  def toHql(column: Column[_]): Hql = ???
-//}
+
+  def toHql(column: Column[_]): Hql = ???
+}
