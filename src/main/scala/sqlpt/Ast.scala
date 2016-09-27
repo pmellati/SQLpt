@@ -3,45 +3,47 @@ package sqlpt
 import sqlpt.Column._, Type._, Arithmetic._, AggregationFuncs._
 
 // TODO: Restrict column types.
-trait Rows[A <: Product] {
-  def cols: A
+trait Rows[Cols <: Product] {
+  def cols: Cols
 
-  def join[B <: Product](right: Rows[B])(on: (A, B) => Column[Bool]) =
-    InnerJoin(this, right)(on)
+  def join[OtherCols <: Product](right: Rows[OtherCols])(on: (Cols, OtherCols) => Column[Bool]) =
+    InnerJoin(this, right, on)
 }
 
-case class Filtered[S <: Product](source: Rows[S], sourceFilters: Set[Column[Bool]]) {
-  def where(f: S => Column[Bool]): Filtered[S] =
-    copy(sourceFilters = sourceFilters + f(source.cols))
+case class Filtered[Src <: Product](source: Rows[Src], sourceFilters: Set[Src => Column[Bool]]) {
+  def where(f: Src => Column[Bool]): Filtered[Src] =
+    copy(sourceFilters = sourceFilters + f)
 
-  def select[B <: Product](p: S => B): Selection[B, S] =
-    Selection(p(source.cols), source, sourceFilters)
+  def select[Cols <: Product](p: Src => Cols): Selection[Cols, Src] =
+    Selection(p, source, sourceFilters)
 
-  def selectDistinct[B <: Product](p: S => B): Selection[B, S] =
+  def selectDistinct[Cols <: Product](p: Src => Cols): Selection[Cols, Src] =
     select(p).distinct
 
-  def groupBy[G <: Product](selectGroupingCols: S => G) =
-    Grouped[G, S](selectGroupingCols(source.cols), source, sourceFilters)
+  def groupBy[GrpCols <: Product](selectGroupingCols: Src => GrpCols) =
+    Grouped[GrpCols, Src](selectGroupingCols, source, sourceFilters)
 }
 
-case class Selection[A <: Product, S <: Product](
-  cols: A,
-  source: Rows[S],
-  filters: Set[Column[Bool]],   // TODO: Does this need to be a Set? We can AND.
+case class Selection[Cols <: Product, Src <: Product](
+  projection: Src => Cols,
+  source:     Rows[Src],
+  filters:    Set[Src => Column[Bool]],   // TODO: Does this need to be a Set? We can AND.
   isDistinct: Boolean = false
-) extends Rows[A] {
-  def distinct: Selection[A, S] =
+) extends Rows[Cols] {
+  override def cols = projection(source.cols)  // TODO: Not sure if this makes sense.
+
+  def distinct: Selection[Cols, Src] =
     copy(isDistinct = true)
 }
 
-case class InnerJoin[A <: Product, B <: Product](
-  left:  Rows[A],
-  right: Rows[B]
-)(on: (A, B) => Column[Bool]) extends Rows[(A, B)] {
+case class InnerJoin[LeftCols <: Product, RightCols <: Product](
+  left:  Rows[LeftCols],
+  right: Rows[RightCols],
+  on:    (LeftCols, RightCols) => Column[Bool]) extends Rows[(LeftCols, RightCols)] {
   override def cols = (left.cols, right.cols)
 }
 
-case class Table[A <: Product](name: String, cols: A) extends Rows[A]
+case class Table[Cols <: Product](name: String, cols: Cols) extends Rows[Cols]
 
 trait TableDef {
   type Columns <: Product
@@ -53,29 +55,41 @@ trait TableDef {
   protected implicit def str2Column[T <: Type](colName: String): Column[T] = SourceColumn[T](name, colName)
 }
 
-case class Grouped[G <: Product, S <: Product](groupingCols: G, source: Rows[S], sourceFilters: Set[Column[Bool]]) {
+case class Grouped[GrpCols <: Product, Src <: Product](
+  groupingCols:  Src => GrpCols,
+  source:        Rows[Src],
+  sourceFilters: Set[Src => Column[Bool]]
+) {
   class Aggregator {
-    def count(c: S => Column[_ <: Type]) =
+    def count(c: Src => Column[_ <: Type]) =
       Count(c(source.cols))
   }
 
-  def select[A <: Product](f: (G, Aggregator) => A) =
-    Aggregation(f(groupingCols, new Aggregator), groupingCols, source, sourceFilters, Set.empty)
+  def select[Cols <: Product](f: (GrpCols, Aggregator) => Cols) = {
+    val columnSelection: (Src, Src => GrpCols) => Cols = {(s, s2g) =>
+      f(s2g(s), new Aggregator)
+    }
+
+    Aggregation[Cols, GrpCols, Src, Aggregator](columnSelection, groupingCols, source, sourceFilters, Set.empty)
+  }
 }
 
-case class Aggregation[A <: Product, G <: Product, S <: Product](
-  cols: A,
-  groupingCols: G,
-  source: Rows[S],
-  sourceFilters: Set[Column[Bool]],
-  groupFilters: Set[Column[Bool]]
-) extends Rows[A] {
-  def having(f: A => Column[Bool]) =
-    copy(groupFilters = groupFilters + f(cols))
+case class Aggregation[Cols <: Product, GrpCols <: Product, Src <: Product, AggrT](
+  projection:    (Src, Src => GrpCols) => Cols,
+  groupingCols:  Src => GrpCols,
+  source:        Rows[Src],
+  sourceFilters: Set[Src => Column[Bool]],
+  groupFilters:  Set[Cols => Column[Bool]]
+) extends Rows[Cols] {
+  override def cols: Cols =
+    projection(source.cols, groupingCols)
+
+  def having(f: Cols => Column[Bool]) =
+    copy(groupFilters = groupFilters + f)
 }
 
 object Usage {
-  implicit def rows2Filtered[A <: Product](rows: Rows[A]): Filtered[A] =
+  implicit def rows2Filtered[Src <: Product](rows: Rows[Src]): Filtered[Src] =
     Filtered(rows, Set.empty)
 
   object CarLoans extends TableDef {
