@@ -66,14 +66,14 @@ case class Grouped[GrpCols <: Product, Src <: Product](
   source:        Rows[Src],
   sourceFilters: Set[Src => Column[Bool]]
 ) {
-  class Aggregator {
+  class Aggregator(source: Src) {
     def count(c: Src => Column[_ <: Type]) =
-      Count(c)
+      Count(c(source))
   }
 
   def select[Cols <: Product](f: (GrpCols, Aggregator) => Cols) = {
-    val columnSelection: (Src, Src => GrpCols) => Cols = {(s, s2g) =>
-      f(s2g(s), new Aggregator)
+    val columnSelection: Src => Cols = {src =>
+      f(groupingCols(src), new Aggregator(src))
     }
 
     Aggregation[Cols, GrpCols, Src](columnSelection, groupingCols, source, sourceFilters, Set.empty)
@@ -81,14 +81,14 @@ case class Grouped[GrpCols <: Product, Src <: Product](
 }
 
 case class Aggregation[Cols <: Product, GrpCols <: Product, Src <: Product](
-  projection:    (Src, Src => GrpCols) => Cols,
+  projection:    Src => Cols,
   groupingCols:  Src => GrpCols,
   source:        Rows[Src],
   sourceFilters: Set[Src => Column[Bool]],
   groupFilters:  Set[Cols => Column[Bool]]
 ) extends Rows[Cols] {
   private[sqlpt] override def cols(n: Nothing): Cols =
-    projection(source.cols(n), groupingCols)
+    projection(source.cols(n))
 
   def having(f: Cols => Column[Bool]) =
     copy(groupFilters = groupFilters + f)
