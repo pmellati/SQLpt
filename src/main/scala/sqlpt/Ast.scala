@@ -3,8 +3,8 @@ package sqlpt
 import sqlpt.Column._, Type._, Arithmetic._, AggregationFuncs._
 
 // TODO: Restrict column types.
-trait Rows[Cols <: Product] {
-  private[sqlpt] def cols(n: Nothing): Cols
+sealed trait Rows[Cols <: Product] {
+  private[sqlpt] def cols: Cols
 
   def join[OtherCols <: Product](right: Rows[OtherCols])(on: (Cols, OtherCols) => Column[Bool]) =
     InnerJoin(this, right, on)
@@ -30,8 +30,8 @@ case class Selection[Cols <: Product, Src <: Product](
   filters:    Set[Src => Column[Bool]],   // TODO: Does this need to be a Set? We can AND.
   isDistinct: Boolean = false
 ) extends Rows[Cols] {
-  private[sqlpt] override def cols(n: Nothing) =
-    projection(source.cols(n))
+  private[sqlpt] override def cols =
+    projection(source.cols)
 
   def distinct: Selection[Cols, Src] =
     copy(isDistinct = true)
@@ -42,12 +42,12 @@ case class InnerJoin[LeftCols <: Product, RightCols <: Product](
   right: Rows[RightCols],
   on:    (LeftCols, RightCols) => Column[Bool]
 ) extends Rows[(LeftCols, RightCols)] {
-  private[sqlpt] override def cols(n: Nothing) =
-    (left.cols(n), right.cols(n))
+  private[sqlpt] override def cols =
+    (left.cols, right.cols)
 }
 
 case class Table[Cols <: Product](name: String, columns: Cols) extends Rows[Cols] {
-  private[sqlpt] override def cols(n: Nothing) =
+  private[sqlpt] override def cols =
     columns
 }
 
@@ -87,8 +87,8 @@ case class Aggregation[Cols <: Product, GrpCols <: Product, Src <: Product](
   sourceFilters: Set[Src => Column[Bool]],
   groupFilters:  Set[Cols => Column[Bool]]
 ) extends Rows[Cols] {
-  private[sqlpt] override def cols(n: Nothing): Cols =
-    projection(source.cols(n))
+  private[sqlpt] override def cols: Cols =
+    projection(source.cols)
 
   def having(f: Cols => Column[Bool]) =
     copy(groupFilters = groupFilters + f)
