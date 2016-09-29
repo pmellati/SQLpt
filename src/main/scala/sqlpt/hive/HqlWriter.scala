@@ -1,42 +1,69 @@
 package sqlpt.hive
 
-import sqlpt._, Column._, Arithmetic._
+import sqlpt._, Column._, Type._, Arithmetic._, Literal._
 import ColumnAffinitiesExtraction._
+import scalaz._, Scalaz._
 
 object HqlWriter {
   type Hql = String
 
-  def toHql(rows: Rows[_ <: Product]): Hql = rows match {
-    case selection: Selection[_, _] =>
-      val affinities = affinitiesOf(selection.source)
+  def toHql(selection: Selection[_ <: Product, _ <: Product]): Hql = {
+    val affinities = affinitiesOf(selection.source)
 
-      println(s"Sources:\n${findSources(selection.source)}")
-      println()
-      println(s"Affinities:\n${affinitiesOf(selection.source)}")
-
-      val selectedColumns =
-        selection.cols.productIterator
+    val selectedColumns =
+      selection.cols.productIterator
         .map {subProduct =>
           toHql(subProduct.asInstanceOf[Column[_]], affinities)   // TODO: We may also get a product (tuple or case class) here.
         }.mkString(", ")
-//
-//      val whereClause = selection.filters.reduceOption {_ and _}.fold("") {filter =>
-//        s"""WHERE ${toHql(filter)}"""
-//      }
-//
-      val optionallyDistinct =
-        if (selection.isDistinct) "DISTINCT" else ""
 
+    val optionallyDistinct = selection.isDistinct ? "DISTINCT" | ""
 
+    val sources = sourcesOf(selection.source)
 
-      // TODO: Here we should also decide whether the source requires parens and / or aliases.
-      s"""SELECT $optionallyDistinct $selectedColumns
-         |FROM ({toHql(selection.source)})
-         |whereClause
+    val fromClause = sources.zipWithIndex.map {case ((source, onCondition), index) =>
+      val fromOrJoinType = (index == 0) ? "FROM" | "JOIN"  // TODO: Can't always assume inner join.
+
+      val (optParenOpen, optParenClose) = !source.isInstanceOf[Table[_]] ? ("(", ")") | ("", "")
+
+      val optAlias =
+        if (sources.length > 1 || !source.isInstanceOf[Table[_]])
+          affinityToLetter(index)
+        else
+          ""
+
+      val optOn = onCondition.fold("") {onCondition => s"ON ${toHql(onCondition, affinities)}"}
+
+      s"$fromOrJoinType $optParenOpen ${Internal.toHql(source)} $optParenClose $optAlias $optOn"
+    }.mkString("\n")
+
+    val whereClause = {
+      val allFilters = selection.filters.reduceOption(_ and _)
+      allFilters.fold("") {allFilters =>
+        s"WHERE ${toHql(allFilters, affinities)}"
+      }
+    }
+
+    // TODO: Here we should also decide whether the source requires parens and / or aliases.
+    s"""SELECT $optionallyDistinct $selectedColumns
+        |$fromClause
+        |$whereClause
       """.stripMargin
-
-    case xx => ???
   }
+
+  def toHql(table: Table[_]) =
+    table.name
+
+  private object Internal {
+    def toHql(rows: Rows[_ <: Product]): Hql = rows match {
+      case selection: Selection[_, _] =>
+        HqlWriter.toHql(selection)
+      case table: Table[_] =>
+        HqlWriter.toHql(table)
+      case xx =>
+        ???
+    }
+  }
+
 
   def toHql(column: Column[_], affinity: Affinities): Hql = column match {
     case sourceColumn: SourceColumn[_] =>
@@ -48,6 +75,9 @@ object HqlWriter {
     case Multiplication(left, right) =>
       s"${toHql(left, affinity)} * ${toHql(right, affinity)}"
 
+    case LiteralNum(n) =>
+      n.toString
+
     case unimplemented =>
       throw new NotImplementedError(s"Not Implemented: toHql($unimplemented)")
   }
@@ -58,20 +88,22 @@ object HqlWriter {
 
 // TODO: Reconsider the names and put into separate file.
 object ColumnAffinitiesExtraction {
-  type Affinity     = Int
-  type NextAffinity = Int
-  type Affinities   = Seq[(SourceColumn[_ <: Type], Affinity)]    // TODO: Should be a Map that uses reference equality as equality for keys.
+  type Affinity      = Int
+  type Affinities    = Seq[(SourceColumn[_ <: Type], Affinity)]    // TODO: Should be a Map that uses reference equality as equality for keys.
+  type JoinCondition = Column[Bool]
 
   def affinitiesOf(rows: Rows[_ <: Product]): Affinities =
-    findSources(rows).zipWithIndex.foldLeft(Seq.empty: Affinities) {case (affinities, (src, affinity)) =>
+    sourcesOf(rows).map(_._1).zipWithIndex.foldLeft(Seq.empty: Affinities) {case (affinities, (src, affinity)) =>
       affinities ++ sourceColumnsWithAffinity(src, affinity)
     }
 
-  def findSources(rows: Rows[_ <: Product]): Seq[Rows[_ <: Product]] = rows match {   // TODO: Instead return a Set that uses reference equality.
-    case InnerJoin(left, right, _) =>
-      findSources(left) ++ findSources(right)
+  def sourcesOf(rows: Rows[_ <: Product]): Seq[(Rows[_ <: Product], Option[JoinCondition])] = rows match {   // TODO: Instead return a Set that uses reference equality.
+    case InnerJoin(left, right, onCondition) =>
+      if (right.isInstanceOf[InnerJoin[_,_]]) throw new IllegalStateException
+
+      sourcesOf(left) :+ right -> Some(onCondition)
     case nonJoin =>
-      Seq(nonJoin)
+      Seq(nonJoin -> None)
   }
 
   protected def sourceColumnsWithAffinity(rows: Rows[_ <: Product], affinity: Affinity): Affinities =

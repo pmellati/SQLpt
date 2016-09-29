@@ -7,7 +7,7 @@ sealed trait Rows[Cols <: Product] {
   def cols: Cols
 
   def join[OtherCols <: Product](right: Rows[OtherCols])(on: (Cols, OtherCols) => Column[Bool]) =
-    InnerJoin(this, right, on)
+    InnerJoin(this, right, on(this.cols, right.cols))
 }
 
 case class Filtered[Src <: Product](source: Rows[Src], sourceFilters: Set[Column[Bool]]) {
@@ -37,7 +37,7 @@ case class Selection[Cols <: Product, Src <: Product](
 case class InnerJoin[LeftCols <: Product, RightCols <: Product](
   left:  Rows[LeftCols],
   right: Rows[RightCols],
-  on:    (LeftCols, RightCols) => Column[Bool]
+  on:    Column[Bool]
 ) extends Rows[(LeftCols, RightCols)] {
   override def cols =
     (left.cols, right.cols)

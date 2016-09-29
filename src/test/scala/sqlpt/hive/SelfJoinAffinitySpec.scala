@@ -1,9 +1,11 @@
 package sqlpt.hive
 
 import org.specs2.mutable.Spec
+import org.specs2.matcher._
 import sqlpt._, Column._, Type._, Arithmetic._
+import HqlWriter.{Hql, toHql}
 
-class SelfJoinAffinitySpec extends Spec {
+class SelfJoinAffinitySpec extends Spec with MatchersCreation {
   object Cars extends TableDef {
     override val name = "cars"
 
@@ -26,17 +28,24 @@ class SelfJoinAffinitySpec extends Spec {
           (r.id, l.id, l.price * r.price)
         }
 
-    HqlWriter.toHql(query) must_==
+    toHql(query) must beSameHqlAs(
       """
-        |SELECT B.id, A.id, A.price * B.price
+        |SELECT B.car_id, A.car_id, A.price * B.price
         |FROM cars A
         |JOIN cars B
-        |ON A.id = B.id
-        |WHERE B.price = 12000
-      """.stripMargin
+        |ON A.car_id = B.car_id
+        |WHERE B.price = 12000.0
+      """.stripMargin)
   }
 
   // TODO: Put this in the lib, so that it doesn't have to be defined everywhere.
   private implicit def rows2Filtered[Src <: Product](rows: Rows[Src]): Filtered[Src] =
     Filtered(rows, Set.empty)
+
+  private def beSameHqlAs(other: Hql): Matcher[Hql] = {self: Hql =>
+    def tokenized(text: Hql) =
+      text.split("\\s").toSeq.filterNot(_.trim.isEmpty)
+
+    (tokenized(self) == tokenized(other), s"$self\n\nwas not the same Hql as:\n\n$other")
+  }
 }
