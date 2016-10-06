@@ -7,7 +7,7 @@ import scalaz._, Scalaz._
 object HqlWriter {
   type Hql = String
 
-  def toHql(selection: Selection[_ <: Product, _ <: Product]): Hql = {
+  def toHql(selection: SimpleSelection[_ <: Product, _ <: Product]): Hql = {
     val affinities = affinitiesOf(selection.source)
 
     val selectedColumns =
@@ -55,7 +55,7 @@ object HqlWriter {
 
   private object Internal {
     def toHql(rows: Rows[_ <: Product]): Hql = rows match {
-      case selection: Selection[_, _] =>
+      case selection: SimpleSelection[_, _] =>
         HqlWriter.toHql(selection)
       case table: Table[_] =>
         HqlWriter.toHql(table)
