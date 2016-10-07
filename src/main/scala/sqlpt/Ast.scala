@@ -7,10 +7,15 @@ sealed trait Rows[Cols <: Product] {
   def cols: Cols
 
   def join[OtherCols <: Product](right: Rows[OtherCols])(on: (Cols, OtherCols) => Column[Bool]) =
-    InnerJoin(this, right, on(this.cols, right.cols))
+    Joined2[Cols, OtherCols, Cols, OtherCols](this, right, Seq(on(this.cols, right.cols)), Seq(JoinMode.Inner))
 
+  // TODO: Remove direct call to `Outer`.
   def leftJoin[OtherCols <: Product](right: Rows[OtherCols])(on: (Cols, OtherCols) => Column[Bool]) =
-    LeftJoin(this, right, on(this.cols, right.cols))
+    Joined2[Cols, Nullabled[OtherCols], Cols, OtherCols](this, Outer(right), Seq(on(this.cols, right.cols)), Seq(JoinMode.Left))
+
+  // TODO: Remove direct call to `Outer`.
+  def rightJoin[OtherCols <: Product](right: Rows[OtherCols])(on: (Cols, OtherCols) => Column[Bool]) =
+    Joined2[Nullabled[Cols], OtherCols, Cols, OtherCols](Outer(this), right, Seq(on(this.cols, right.cols)), Seq(JoinMode.Right))
 }
 
 case class Filtered[Src <: Product](source: Rows[Src], sourceFilters: Set[Column[Bool]]) {
@@ -44,30 +49,121 @@ case class SimpleSelection[Cols <: Product, Src <: Product](
     copy(isDistinct = true)
 }
 
-case class InnerJoin[LeftCols <: Product, RightCols <: Product](
-  left:  Rows[LeftCols],
-  right: Rows[RightCols],
-  on:    Column[Bool]
-) extends Rows[(LeftCols, RightCols)] {
-  override def cols =
-    (left.cols, right.cols)
+// TODO: Move join stuff to another file.
+
+case class Nullabled[Cols <: Product](cols: Cols) {
+  def apply[T <: Type](f: Cols => Column[T]) =
+    f(cols).asInstanceOf[Column[Nullable[T]]]
 }
 
-case class LeftJoin[LeftCols <: Product, RightCols <: Product](
-  left:  Rows[LeftCols],
-  right: Rows[RightCols],
-  on:    Column[Bool]
-) extends Rows[(LeftCols, Nullabled[RightCols])] {
-  override def cols =
-    (left.cols, new Nullabled(right.cols))
+case class Outer[Cols <: Product] private (rows: Rows[Cols]) extends Rows[Nullabled[Cols]] {
+  override def cols = Nullabled(rows.cols)
 }
 
-// TODO: Reconsider this. And should this be a `Column`?
-class Nullabled[Cols <: Product](cols: Cols) {
-  import MiscFunctions._
+sealed trait JoinMode
+object JoinMode {
+  case object Inner extends JoinMode
+  case object Left  extends JoinMode
+  case object Right extends JoinMode
+}
 
-  def apply[T <: Type](select: Cols => Column[T]): Column[Nullable[T]] =
-    select(cols).asNullable
+trait BaseJoined {
+  def ons: Seq[Column[Bool]]
+  def joinModes: Seq[JoinMode]
+  def sourceSeq: Seq[Rows[_ <: Product]]
+
+  protected def outer[Inner <: Product](rows: Rows[_ <: Product]): Outer[Inner] = rows match {
+    case alreadyOuter: Outer[_] => alreadyOuter.asInstanceOf[Outer[Inner]]
+    case nonOuter => Outer(nonOuter).asInstanceOf[Outer[Inner]]
+  }
+}
+
+case class Joined2
+  [Cols1 <: Product, Cols2 <: Product, Inner1 <: Product, Inner2 <: Product]
+  (rows1: Rows[Cols1], rows2: Rows[Cols2], ons: Seq[Column[Bool]], joinModes: Seq[JoinMode])
+  extends Rows[(Cols1, Cols2)]
+  with BaseJoined
+{
+  override def cols =
+    (rows1.cols, rows2.cols)
+
+  override def sourceSeq =
+    Seq(rows1, rows2)
+
+  def join[NewCols <: Product](newRows: Rows[NewCols])(on: (Cols1, Cols2, NewCols) => Column[Bool]) =
+    Joined3[Cols1, Cols2, NewCols, Inner1, Inner2, NewCols](
+      rows1, rows2, newRows, ons :+ on(rows1.cols, rows2.cols, newRows.cols), joinModes :+ JoinMode.Inner)
+
+  def leftJoin[NewCols <: Product](newRows: Rows[NewCols])(on: (Cols1, Cols2, NewCols) => Column[Bool]) =
+    Joined3[Cols1, Cols2, Nullabled[NewCols], Inner1, Inner2, NewCols](
+      rows1, rows2, outer(newRows), ons :+ on(rows1.cols, rows2.cols, newRows.cols), joinModes :+ JoinMode.Left)
+
+  def rightJoin[NewCols <: Product](newRows: Rows[NewCols])(on: (Cols1, Cols2, NewCols) => Column[Bool]) =
+    Joined3[Nullabled[Inner1], Nullabled[Inner2], NewCols, Inner1, Inner2, NewCols](
+      outer(rows1), outer(rows2), newRows, ons :+ on(rows1.cols, rows2.cols, newRows.cols), joinModes :+ JoinMode.Right)
+}
+
+case class Joined3
+  [Cols1 <: Product, Cols2 <: Product, Cols3 <: Product, Inner1 <: Product, Inner2 <: Product, Inner3 <: Product]
+  (rows1: Rows[Cols1], rows2: Rows[Cols2], rows3: Rows[Cols3], ons: Seq[Column[Bool]], joinModes: Seq[JoinMode])
+  extends Rows[(Cols1, Cols2, Cols3)]
+  with BaseJoined
+{
+  override def cols =
+    (rows1.cols, rows2.cols, rows3.cols)
+
+  override def sourceSeq =
+    Seq(rows1, rows2, rows3)
+
+  def join[NewCols <: Product](newRows: Rows[NewCols])(on: (Cols1, Cols2, Cols3, NewCols) => Column[Bool]) =
+    Joined4[Cols1, Cols2, Cols3, NewCols, Inner1, Inner2, Inner3, NewCols](
+      rows1, rows2, rows3, newRows, ons :+ on(rows1.cols, rows2.cols, rows3.cols, newRows.cols), joinModes :+ JoinMode.Inner)
+
+  def leftJoin[NewCols <: Product](newRows: Rows[NewCols])(on: (Cols1, Cols2, Cols3, NewCols) => Column[Bool]) =
+    Joined4[Cols1, Cols2, Cols3, Nullabled[NewCols], Inner1, Inner2, Inner3, NewCols](
+      rows1, rows2, rows3, outer(newRows), ons :+ on(rows1.cols, rows2.cols, rows3.cols, newRows.cols), joinModes :+ JoinMode.Left)
+
+  def rightJoin[NewCols <: Product](newRows: Rows[NewCols])(on: (Cols1, Cols2, Cols3, NewCols) => Column[Bool]) =
+    Joined4[Nullabled[Inner1], Nullabled[Inner2], Nullabled[Inner3], NewCols, Inner1, Inner2, Inner3, NewCols](
+      outer(rows1), outer(rows2), outer(rows3), newRows, ons :+ on(rows1.cols, rows2.cols, rows3.cols, newRows.cols), joinModes :+ JoinMode.Right)
+}
+
+case class Joined4
+  [Cols1 <: Product, Cols2 <: Product, Cols3 <: Product, Cols4 <: Product, Inner1 <: Product, Inner2 <: Product, Inner3 <: Product, Inner4 <: Product]
+  (rows1: Rows[Cols1], rows2: Rows[Cols2], rows3: Rows[Cols3], rows4: Rows[Cols4], ons: Seq[Column[Bool]], joinModes: Seq[JoinMode])
+  extends Rows[(Cols1, Cols2, Cols3, Cols4)]
+  with BaseJoined
+{
+  override def cols =
+    (rows1.cols, rows2.cols, rows3.cols, rows4.cols)
+
+  override def sourceSeq =
+    Seq(rows1, rows2, rows3, rows4)
+
+  def join[NewCols <: Product](newRows: Rows[NewCols])(on: (Cols1, Cols2, Cols3, Cols4, NewCols) => Column[Bool]) =
+    Joined5[Cols1, Cols2, Cols3, Cols4, NewCols, Inner1, Inner2, Inner3, Inner4, NewCols](
+      rows1, rows2, rows3, rows4, newRows, ons :+ on(rows1.cols, rows2.cols, rows3.cols, rows4.cols, newRows.cols), joinModes :+ JoinMode.Inner)
+
+  def leftJoin[NewCols <: Product](newRows: Rows[NewCols])(on: (Cols1, Cols2, Cols3, Cols4, NewCols) => Column[Bool]) =
+    Joined5[Cols1, Cols2, Cols3, Cols4, Nullabled[NewCols], Inner1, Inner2, Inner3, Inner4, NewCols](
+      rows1, rows2, rows3, rows4, outer(newRows), ons :+ on(rows1.cols, rows2.cols, rows3.cols, rows4.cols, newRows.cols), joinModes :+ JoinMode.Left)
+
+  def rightJoin[NewCols <: Product](newRows: Rows[NewCols])(on: (Cols1, Cols2, Cols3, Cols4, NewCols) => Column[Bool]) =
+    Joined5[Nullabled[Inner1], Nullabled[Inner2], Nullabled[Inner3], Nullabled[Inner4], NewCols, Inner1, Inner2, Inner3, Inner4, NewCols](
+      outer(rows1), outer(rows2), outer(rows3), outer(rows4), newRows, ons :+ on(rows1.cols, rows2.cols, rows3.cols, rows4.cols, newRows.cols), joinModes :+ JoinMode.Right)
+}
+
+case class Joined5
+  [Cols1 <: Product, Cols2 <: Product, Cols3 <: Product, Cols4 <: Product, Cols5 <: Product, Inner1 <: Product, Inner2 <: Product, Inner3 <: Product, Inner4 <: Product, Inner5 <: Product]
+  (rows1: Rows[Cols1], rows2: Rows[Cols2], rows3: Rows[Cols3], rows4: Rows[Cols4], rows5: Rows[Cols5], ons: Seq[Column[Bool]], joinModes: Seq[JoinMode])
+  extends Rows[(Cols1, Cols2, Cols3, Cols4, Cols5)]
+  with BaseJoined
+{
+  override def cols =
+    (rows1.cols, rows2.cols, rows3.cols, rows4.cols, rows5.cols)
+
+  override def sourceSeq =
+    Seq(rows1, rows2, rows3, rows4, rows5)
 }
 
 case class Table[Cols <: Product](name: String, cols: Cols) extends Rows[Cols]
@@ -161,4 +257,9 @@ object Usage {
     )}.having {case (_, count) =>
       count === 3
     }
+
+  CarLoans.table
+    .leftJoin (CreditCards.table) {_.customerId === _.customerId}
+    .rightJoin(CarLoans.table) {case (carLoan1, cc, carLoan2) => carLoan1.customerId === carLoan2.customerId}
+    .select {case (_, cc, _) => cc(_.cardId).isNull}
 }

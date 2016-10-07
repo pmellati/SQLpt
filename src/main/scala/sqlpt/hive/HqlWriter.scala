@@ -98,10 +98,9 @@ object ColumnAffinitiesExtraction {
     }
 
   def sourcesOf(rows: Rows[_ <: Product]): Seq[(Rows[_ <: Product], Option[JoinCondition])] = rows match {   // TODO: Instead return a Set that uses reference equality.
-    case InnerJoin(left, right, onCondition) =>
-      if (right.isInstanceOf[InnerJoin[_,_]]) throw new IllegalStateException
+    case joined: BaseJoined =>
+      joined.sourceSeq zip (None +: joined.ons.map(Some(_)))
 
-      sourcesOf(left) :+ right -> Some(onCondition)
     case nonJoin =>
       Seq(nonJoin -> None)
   }
