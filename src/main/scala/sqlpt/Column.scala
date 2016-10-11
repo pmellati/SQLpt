@@ -1,6 +1,7 @@
 package sqlpt
 
 import sqlpt.Column.NullableOps.IsNull
+import scalaz.NonEmptyList
 
 sealed trait Column[+T <: Column.Type] extends Product
 
@@ -57,9 +58,29 @@ object Column {
   }
 
   object AggregationFuncs {
-    case class Count(col: Column[_ <: Type]) extends Column[Num]
-    case class Sum(col: Column[Num]) extends Column[Num]
-    case class Max[T <: Type](col: Column[T]) extends Column[T]
+    case class Count          private (col: Column[_ <: Type]) extends Column[Num]
+    case class Sum            private (col: Column[Num])       extends Column[Num]
+    case class Max[T <: Type] private (col: Column[T])         extends Column[T]
+  }
+
+  object WindowingAndAnalytics {
+    import AnalyticsFunc._
+
+    object AnalyticsFunc {
+      case class RowNumber(over: Over) extends Column[Num]
+      case class Rank     (over: Over) extends Column[Num]
+    }
+
+    case class Over(partitionByCols: NonEmptyList[Column[_ <: Type]], orderByCols: List[Column[_ <: Type]] = Nil) {
+      def orderBy(cols: Column[_ <: Type]*) =
+        copy(orderByCols = cols.toList)
+
+      def rowNumber = RowNumber(this)
+      def rank      = Rank(this)
+    }
+
+    def partitionBy(col1: Column[_ <: Type], cols: Column[_ <: Type]*) =
+      Over(NonEmptyList(col1, cols: _*))
   }
 
   object Literal {

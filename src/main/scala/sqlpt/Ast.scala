@@ -184,11 +184,14 @@ case class Grouped[GrpCols <: Product, Src <: Product](
   sourceFilters: Set[Column[Bool]]
 ) {
   class Aggregator {
-    def count(c: Src => Column[_ <: Type]) =
-      Count(c(source.cols))
+    def count(s: Src => Column[_ <: Type]) =
+      Count(s(source.cols))
 
     def sum(s: Src => Column[Num]) =
       Sum(s(source.cols))
+
+    def max[T <: Type](s: Src => Column[T]) =
+      Max(s(source.cols))
   }
 
   def select[Cols <: Product](f: (GrpCols, Aggregator) => Cols) =
