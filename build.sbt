@@ -28,8 +28,7 @@ conflictManager := ConflictManager.strict
 scalacOptions ++= Seq(
   "-Xfatal-warnings",
   "-feature",
-  "-language:implicitConversions",
-  "-language:higherKinds"
+  "-language:_"
 )
 
 scalacOptions in Test ++= Seq("-Yrangepos")
