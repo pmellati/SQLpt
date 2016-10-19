@@ -221,7 +221,9 @@ object Insertion {
     case class OverwriteTable(ifNotExists: Boolean) extends Mode
   }
 
-  case class Insertion(tableName: String, mode: Mode, partition: Seq[(String, String)], selection: Selection[_ <: Product]) {
+  case class Insertion
+  (tableName: String, mode: Mode, partition: Seq[(String, String)], selection: Selection[_ <: Product])
+  extends Statement {
     def inPartition(entries: (String, String)*) =
       copy(partition = entries)
   }
@@ -234,6 +236,11 @@ object Insertion {
       Insertion(tableName, Mode.OverwriteTable(ifNotExists), Seq.empty, selection)
   }
 }
+
+/** Signifies side-effecting statements that return unit. */
+sealed trait Statement
+
+case class StringStatement(sql: String) extends Statement
 
 object Usage {
   implicit def rows2Filtered[Src <: Product](rows: Rows[Src]): Filtered[Src] =
