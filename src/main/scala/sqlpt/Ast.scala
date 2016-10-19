@@ -32,7 +32,8 @@ case class Filtered[Src <: Product](source: Rows[Src], sourceFilters: Set[Column
     Grouped[GrpCols, Src](selectGroupingCols(source.cols), source, sourceFilters)
 }
 
-sealed trait Selection[Cols <: Product] {
+// TODO: Can the type parameter be made covariant?
+sealed trait Selection[Cols <: Product] extends Rows[Cols] {
   def cols: Cols
 
   def unionAll(other: Selection[Cols]) =
@@ -44,7 +45,7 @@ case class SimpleSelection[Cols <: Product, Src <: Product](
   source:     Rows[Src],
   filters:    Set[Column[Bool]],   // TODO: Does this need to be a Set? We can AND.
   isDistinct: Boolean = false
-) extends Rows[Cols] with Selection[Cols] {
+) extends Selection[Cols] {
   def distinct: SimpleSelection[Cols, Src] =
     copy(isDistinct = true)
 }
@@ -204,13 +205,34 @@ case class AggrSelection[Cols <: Product, GrpCols <: Product, Src <: Product](
   source:        Rows[Src],
   sourceFilters: Set[Column[Bool]],
   groupFilters:  Set[Column[Bool]]
-) extends Rows[Cols] with Selection[Cols] {
+) extends Selection[Cols] {
   def having(f: Cols => Column[Bool]) =
     copy(groupFilters = groupFilters + f(cols))
 }
 
 case class UnionAll[Cols <: Product] private (selects: Seq[Selection[Cols]]) extends Rows[Cols] {
   override def cols = selects.head.cols   // TODO: Does this make sense?
+}
+
+object Insertion {
+  sealed trait Mode
+  object Mode {
+    case object Into extends Mode
+    case class OverwriteTable(ifNotExists: Boolean) extends Mode
+  }
+
+  case class Insertion(tableName: String, mode: Mode, partition: Seq[(String, String)], selection: Selection[_ <: Product]) {
+    def inPartition(entries: (String, String)*) =
+      copy(partition = entries)
+  }
+
+  def insert(selection: Selection[_ <: Product]) = new {
+    def into(tableName: String) =
+      Insertion(tableName, Mode.Into, Seq.empty, selection)
+
+    def overwriteTable(tableName: String, ifNotExists: Boolean = false) =
+      Insertion(tableName, Mode.OverwriteTable(ifNotExists), Seq.empty, selection)
+  }
 }
 
 object Usage {
