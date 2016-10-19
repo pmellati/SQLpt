@@ -58,9 +58,9 @@ object Column {
   }
 
   object AggregationFuncs {
-    case class Count          private (col: Column[_ <: Type]) extends Column[Num]
-    case class Sum            private (col: Column[Num])       extends Column[Num]
-    case class Max[T <: Type] private (col: Column[T])         extends Column[T]
+    case class Count         (col: Column[_ <: Type]) extends Column[Num]
+    case class Sum           (col: Column[Num])       extends Column[Num]
+    case class Max[T <: Type](col: Column[T])         extends Column[T]
   }
 
   object WindowingAndAnalytics {
@@ -88,13 +88,13 @@ object Column {
     case class LiteralStr (s: String)  extends Column[Str]
     case class LiteralBool(b: Boolean) extends Column[Bool]
 
-    implicit def toLiteralNum[N : Numeric](n: N): LiteralNum =
+    implicit def literal[N : Numeric](n: N): LiteralNum =
       LiteralNum(implicitly[Numeric[N]].toDouble(n))
 
-    implicit def toLiteralStr(s: String): LiteralStr =
+    implicit def literal(s: String): LiteralStr =
       LiteralStr(s)
 
-    implicit def toLiteralBool(b: Boolean): LiteralBool =
+    implicit def literal(b: Boolean): LiteralBool =
       LiteralBool(b)
   }
 
@@ -103,6 +103,8 @@ object Column {
     case class IsBetween[T <: Type](col: Column[T], lowerBound: Column[T], upperBound: Column[T]) extends Column[Bool]
     case class IsIn[T <: Type](col: Column[T], values: Seq[Column[T]]) extends Column[Bool]
     case class IsNotIn[T <: Type](col: Column[T], values: Seq[Column[T]]) extends Column[Bool]
+
+    case class Aliased[T <: Type](col: Column[T], alias: String) extends Column[T]
 
     implicit class Syntax[T <: Type](col: Column[T]) {
       def isBetween(lowerBound: Column[T], upperBound: Column[T]) =
@@ -121,8 +123,11 @@ object Column {
       def isNotIn(value1: Column[T], values: Column[T]*) =
         IsNotIn(col, value1 +: values)
 
-      def asNullable: Column[Nullable[T]] =
+      def toNullable: Column[Nullable[T]] =
         col.asInstanceOf[Column[Nullable[T]]]
+
+      def as(alias: String) =
+        Aliased(col, alias)
     }
   }
 
