@@ -22,13 +22,13 @@ case class Filtered[Src <: Product](source: Rows[Src], sourceFilters: Set[Column
   def where(f: Src => Column[Bool]): Filtered[Src] =
     copy(sourceFilters = sourceFilters + f(source.cols))
 
-  def select[Cols <: Product](p: Src => Cols): SimpleSelection[Cols, Src] =
+  def select[Cols <: Product : Columns](p: Src => Cols): SimpleSelection[Cols, Src] =
     SimpleSelection(p(source.cols), source, sourceFilters)
 
-  def selectDistinct[Cols <: Product](p: Src => Cols): SimpleSelection[Cols, Src] =
+  def selectDistinct[Cols <: Product : Columns](p: Src => Cols): SimpleSelection[Cols, Src] =
     select(p).distinct
 
-  def groupBy[GrpCols <: Product](selectGroupingCols: Src => GrpCols) =
+  def groupBy[GrpCols <: Product : Columns](selectGroupingCols: Src => GrpCols) =
     Grouped[GrpCols, Src](selectGroupingCols(source.cols), source, sourceFilters)
 }
 
@@ -195,7 +195,7 @@ case class Grouped[GrpCols <: Product, Src <: Product](
       Max(s(source.cols))
   }
 
-  def select[Cols <: Product](f: (GrpCols, Aggregator) => Cols) =
+  def select[Cols <: Product : Columns](f: (GrpCols, Aggregator) => Cols) =
     AggrSelection[Cols, GrpCols, Src](f(groupingCols, new Aggregator), groupingCols, source, sourceFilters, Set.empty)
 }
 
@@ -246,6 +246,8 @@ object Usage {
   implicit def rows2Filtered[Src <: Product](rows: Rows[Src]): Filtered[Src] =
     Filtered(rows, Set.empty)
 
+  import ColumnsTypeChecking._
+
   object CarLoans extends TableDef {
     val name = "car_loans"
 
@@ -292,6 +294,6 @@ object Usage {
 
   CarLoans.table
     .leftJoin (CreditCards.table) {_.customerId === _.customerId}
-    .rightJoin(CarLoans.table) {case (carLoan1, cc, carLoan2) => carLoan1.customerId === carLoan2.customerId}
+    .rightJoin(CarLoans.table) {case (carLoan1, _, carLoan2) => carLoan1.customerId === carLoan2.customerId}
     .select {case (_, cc, _) => cc(_.cardId).isNull}
 }

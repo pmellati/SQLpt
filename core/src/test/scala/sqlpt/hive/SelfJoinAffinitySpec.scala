@@ -4,6 +4,7 @@ import org.specs2.mutable.Spec
 import org.specs2.matcher._
 import sqlpt._, Column._, Type._, Arithmetic._
 import HqlWriter.{Hql, toHql}
+import ColumnsTypeChecking._
 
 class SelfJoinAffinitySpec extends Spec with MatchersCreation {
   object Cars extends TableDef {

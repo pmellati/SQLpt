@@ -1,34 +1,57 @@
-name := "SQLpt"
-
-scalaVersion := "2.11.8"
-
-resolvers ++= Seq(
-  Resolver.sonatypeRepo("releases"),
-  Resolver.sonatypeRepo("snapshots"),
-  "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
-)
-
-val Version = new {
+lazy val Version = new {
+  val scala     = "2.11.8"
+  val scalaz    = "7.2.6"
   val shapeless = "2.3.2"
+  val specs2    = "3.8.5.1"
 }
 
-libraryDependencies ++= Seq(
-  "com.chuusai" %% "shapeless" % Version.shapeless,
-  "org.scalaz" %% "scalaz-core" % "7.1.1",
-  "org.specs2" %% "specs2-core" % "3.0" % "test"
+lazy val commonSettings = Seq(
+  scalaVersion := Version.scala,
+
+  resolvers ++= Seq(
+    Resolver.sonatypeRepo("releases"),
+    Resolver.sonatypeRepo("snapshots"),
+    "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases"
+  ),
+
+  conflictManager := ConflictManager.strict,
+
+  scalacOptions ++= Seq(
+    "-Xfatal-warnings",
+    "-feature",
+    "-language:_"
+  ),
+
+  scalacOptions in Test ++= Seq("-Yrangepos")
 )
 
-dependencyOverrides ++= Set(
-  "org.scala-lang" % "scala-library" % scalaVersion.value,
-  "com.chuusai" %% "shapeless" % Version.shapeless  // Specs2 depends on a lower version.
-)
+lazy val sqlpt = project
+  .in(file("."))
+  .aggregate(core, macros)
+  .dependsOn(core)
+  .settings(commonSettings)
+  .settings(
+    name := "SQLpt"
+  )
 
-conflictManager := ConflictManager.strict
+lazy val core = project
+  .dependsOn(macros)
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.chuusai" %% "shapeless" % Version.shapeless,
 
-scalacOptions ++= Seq(
-  "-Xfatal-warnings",
-  "-feature",
-  "-language:_"
-)
+      "org.scalaz" %% "scalaz-core" % Version.scalaz,
 
-scalacOptions in Test ++= Seq("-Yrangepos")
+      "org.specs2" %% "specs2-core"          % Version.specs2 % "test",
+      "org.specs2" %% "specs2-matcher-extra" % Version.specs2 % "test"
+    )
+  )
+
+lazy val macros = project
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scala-lang" % "scala-reflect" % Version.scala,
+      "org.scalaz" %% "scalaz-core" % Version.scalaz)
+  )

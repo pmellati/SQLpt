@@ -163,8 +163,8 @@ object Column {
     val balance = SourceColumn[Num]("credit_cards", "balance")
     val custId  = SourceColumn[Str]("credit_cards", "cust_id")
 
-    import Arithmetic._
     import AggregationFuncs._
+    import Arithmetic._
     import Literal._
 
     val tripledCol = balance * 3.0      // Should compile.
