@@ -27,7 +27,7 @@ lazy val commonSettings = Seq(
 
 lazy val sqlpt = project
   .in(file("."))
-  .aggregate(core, macros)
+  .aggregate(core, macros, columns)
   .dependsOn(core)
   .settings(commonSettings)
   .settings(
@@ -35,7 +35,7 @@ lazy val sqlpt = project
   )
 
 lazy val core = project
-  .dependsOn(macros)
+  .dependsOn(macros, columns)
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
@@ -49,9 +49,16 @@ lazy val core = project
   )
 
 lazy val macros = project
+  .dependsOn(columns)
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.scala-lang" % "scala-reflect" % Version.scala,
+      "org.scala-lang" % "scala-reflect" % Version.scala)
+  )
+
+lazy val columns = project
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
       "org.scalaz" %% "scalaz-core" % Version.scalaz)
   )
