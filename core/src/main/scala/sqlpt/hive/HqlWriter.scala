@@ -1,6 +1,6 @@
 package sqlpt.hive
 
-import sqlpt._, Column._, Type._, Arithmetic._, Literal._
+import sqlpt._, ast.expressions._, column._, Column._, Type._
 import ColumnAffinitiesExtraction._
 import scalaz._, Scalaz._
 

@@ -1,9 +1,12 @@
 package sqlpt
 
-import Statements._
-import Insertion._
-
 import java.util.UUID.randomUUID
+
+import sqlpt.column._, Column._
+import sqlpt.ast.expressions.{Selection, Table}
+import sqlpt.ast.statements.Statements._
+import sqlpt.ast.statements.StringStatement
+import sqlpt.ast.statements.Insertion._
 
 object Util {
   def withTempTable[Cols <: Product, R](selection: Selection[Cols])(action: (=> Table[Cols]) => Statements): Statements = {
@@ -26,5 +29,17 @@ object Util {
         |DROP TABLE IF EXISTS $uniqueTempTableName
       """.stripMargin)
     )
+  }
+
+  trait TableDef {
+    type Columns <: Product
+    def name: String
+    def cols: Columns
+
+    type Column[T <: Type] = SourceColumn[T]
+
+    final def table = Table(name, cols)
+
+    protected implicit def str2Column[T <: Type](colName: String): Column[T] = SourceColumn[T](name, colName)
   }
 }

@@ -1,6 +1,7 @@
 package sqlpt
 
 import scala.reflect.macros.blackbox.Context
+import sqlpt.column.Column
 import ColumnTypeValidation._
 
 /** Used as evidence that 'T' is a valid selection of columns. */

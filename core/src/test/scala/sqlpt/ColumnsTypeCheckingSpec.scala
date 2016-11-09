@@ -1,6 +1,7 @@
 package sqlpt
 
-import Column._, Type._, Arithmetic._
+import sqlpt.column._, Column._, Type._
+import sqlpt.Util._
 import ColumnsTypeChecking._
 import ColumnTypeValidation._
 import org.specs2.matcher.NoTypedEqual

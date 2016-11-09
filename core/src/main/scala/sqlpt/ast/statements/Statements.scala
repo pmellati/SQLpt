@@ -1,4 +1,4 @@
-package sqlpt
+package sqlpt.ast.statements
 
 object Statements {
   case class Statements(statements: Seq[Statement]) {

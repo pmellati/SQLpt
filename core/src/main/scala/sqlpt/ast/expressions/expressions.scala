@@ -1,6 +1,6 @@
-package sqlpt
+package sqlpt.ast.expressions
 
-import sqlpt.Column._, Type._, Arithmetic._, AggregationFuncs._
+import sqlpt._, column._, Column._, Type._
 
 // TODO: Restrict column types.
 sealed trait Rows[Cols <: Product] {
@@ -49,8 +49,6 @@ case class SimpleSelection[Cols <: Product, Src <: Product](
   def distinct: SimpleSelection[Cols, Src] =
     copy(isDistinct = true)
 }
-
-// TODO: Move join stuff to another file.
 
 case class Nullabled[Cols <: Product](cols: Cols) {
   def apply[T <: Type](f: Cols => Column[T]) =
@@ -169,16 +167,6 @@ case class Joined5
 
 case class Table[Cols <: Product](name: String, cols: Cols) extends Rows[Cols]
 
-trait TableDef {
-  type Columns <: Product
-  def name: String
-  def cols: Columns
-
-  final def table = Table(name, cols)
-  
-  protected implicit def str2Column[T <: Type](colName: String): Column[T] = SourceColumn[T](name, colName)
-}
-
 case class Grouped[GrpCols <: Product, Src <: Product](
   groupingCols:  GrpCols,
   source:        Rows[Src],
@@ -214,39 +202,13 @@ case class UnionAll[Cols <: Product] private (selects: Seq[Selection[Cols]]) ext
   override def cols = selects.head.cols   // TODO: Does this make sense?
 }
 
-object Insertion {
-  sealed trait Mode
-  object Mode {
-    case object Into extends Mode
-    case class OverwriteTable(ifNotExists: Boolean) extends Mode
-  }
-
-  case class Insertion
-  (tableName: String, mode: Mode, partition: Seq[(String, String)], selection: Selection[_ <: Product])
-  extends Statement {
-    def inPartition(entries: (String, String)*) =
-      copy(partition = entries)
-  }
-
-  def insert(selection: Selection[_ <: Product]) = new {
-    def into(tableName: String) =
-      Insertion(tableName, Mode.Into, Seq.empty, selection)
-
-    def overwriteTable(tableName: String, ifNotExists: Boolean = false) =
-      Insertion(tableName, Mode.OverwriteTable(ifNotExists), Seq.empty, selection)
-  }
-}
-
-/** Signifies side-effecting statements that return unit. */
-sealed trait Statement
-
-case class StringStatement(sql: String) extends Statement
-
+// TODO: Move to an 'examples' sub-project.
 object Usage {
   implicit def rows2Filtered[Src <: Product](rows: Rows[Src]): Filtered[Src] =
     Filtered(rows, Set.empty)
 
   import ColumnsTypeChecking._
+  import sqlpt.Util.TableDef
 
   object CarLoans extends TableDef {
     val name = "car_loans"
@@ -270,8 +232,6 @@ object Usage {
 
     val cols = Columns()
   }
-
-  import Literal._
 
   val selection = CarLoans.table.where(_.amount === 22).select(_.customerId)
 

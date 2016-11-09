@@ -2,7 +2,7 @@ package sqlpt.hive
 
 import org.specs2.mutable.Spec
 import org.specs2.matcher._
-import sqlpt._, Column._, Type._, Arithmetic._
+import sqlpt._, column._, Column._, Type._, ast.expressions._, Util._
 import HqlWriter.{Hql, toHql}
 import ColumnsTypeChecking._
 
@@ -19,8 +19,6 @@ class SelfJoinAffinitySpec extends Spec with MatchersCreation {
   }
 
   "Affinities should be properly determined in the translated Hql" in {
-    import Literal._   // TODO: Putting this at the top of the file causes ambiguous implicit conversions.
-
     val query =
       Cars.table.join(Cars.table) {_.id === _.id}
         .where {case (l, r) =>
