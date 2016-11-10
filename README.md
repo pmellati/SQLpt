@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/pmellati/SQLpt.svg?branch=master)](https://travis-ci.org/pmellati/SQLpt)
+
 # SQLpt
 
 SQLpt will let you construct gigantic SQL expressions in a readable manner. With SQLpt, you will achieve readability by:
