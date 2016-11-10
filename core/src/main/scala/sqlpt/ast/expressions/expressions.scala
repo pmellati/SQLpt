@@ -1,6 +1,6 @@
 package sqlpt.ast.expressions
 
-import sqlpt._, column._, Column._, Type._
+import sqlpt._, column._, Column._, AggregationFuncs._, Type._
 
 // TODO: Restrict column types.
 sealed trait Rows[Cols <: Product] {
@@ -203,10 +203,8 @@ case class UnionAll[Cols <: Product] private (selects: Seq[Selection[Cols]]) ext
 }
 
 // TODO: Move to an 'examples' sub-project.
-object Usage {
-  implicit def rows2Filtered[Src <: Product](rows: Rows[Src]): Filtered[Src] =
-    Filtered(rows, Set.empty)
-
+object Usage extends sqlpt.column.ColumnImplicits {
+  import api.rows2Filtered
   import ColumnsTypeChecking._
   import sqlpt.Util.TableDef
 

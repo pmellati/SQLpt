@@ -36,7 +36,7 @@ object Util {
     def name: String
     def cols: Columns
 
-    type Column[T <: Type] = SourceColumn[T]
+    protected type Column[T <: Type] = SourceColumn[T]
 
     final def table = Table(name, cols)
 

@@ -2,9 +2,8 @@ package sqlpt.hive
 
 import org.specs2.mutable.Spec
 import org.specs2.matcher._
-import sqlpt._, column._, Column._, Type._, ast.expressions._, Util._
+import sqlpt.api._
 import HqlWriter.{Hql, toHql}
-import ColumnsTypeChecking._
 
 class SelfJoinAffinitySpec extends Spec with MatchersCreation {
   object Cars extends TableDef {
@@ -36,10 +35,6 @@ class SelfJoinAffinitySpec extends Spec with MatchersCreation {
         |WHERE B.price = 12000.0
       """.stripMargin)
   }
-
-  // TODO: Put this in the lib, so that it doesn't have to be defined everywhere.
-  private implicit def rows2Filtered[Src <: Product](rows: Rows[Src]): Filtered[Src] =
-    Filtered(rows, Set.empty)
 
   private def beSameHqlAs(other: Hql): Matcher[Hql] = {self: Hql =>
     def tokenized(text: Hql) =

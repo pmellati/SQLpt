@@ -1,10 +1,10 @@
 package sqlpt.hive
 
-import sqlpt._, ast.expressions._, column._, Column._, Type._
+import sqlpt._, column._, Column._, Type._, Arithmetic._, Literals._, ast._, expressions._
 import ColumnAffinitiesExtraction._
 import scalaz._, Scalaz._
 
-object HqlWriter {
+object HqlWriter extends ColumnImplicits {
   type Hql = String
 
   def toHql(selection: SimpleSelection[_ <: Product, _ <: Product]): Hql = {

@@ -1,6 +1,6 @@
 package sqlpt
 
-import sqlpt.column._, Column._, Type._
+import sqlpt.column._, Column._, Type._, Arithmetic._
 import sqlpt.Util._
 import ColumnsTypeChecking._
 import ColumnTypeValidation._
