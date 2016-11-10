@@ -2,7 +2,6 @@ package sqlpt.ast.expressions
 
 import sqlpt._, column._, Column._, AggregationFuncs._, Type._
 
-// TODO: Restrict column types.
 sealed trait Rows[Cols <: Product] {
   def cols: Cols
 
