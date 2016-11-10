@@ -6,6 +6,9 @@ lazy val Version = new {
 }
 
 lazy val commonSettings = Seq(
+  version := "0.1",
+  publishMavenStyle := false,
+
   scalaVersion := Version.scala,
 
   resolvers ++= Seq(
@@ -22,19 +25,20 @@ lazy val commonSettings = Seq(
     "-language:_"
   ),
 
-  scalacOptions in Test ++= Seq("-Yrangepos")
+  scalacOptions in Test ++= Seq("-Yrangepos"),
+
+  licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
 )
 
-lazy val sqlpt = project
+lazy val root = project
   .in(file("."))
-  .aggregate(core, macros, columns, examples)
-  .dependsOn(core)
+  .aggregate(sqlpt, macros, columns, examples)
   .settings(commonSettings)
   .settings(
-    name := "SQLpt"
+    name := "sqlpt-root"
   )
 
-lazy val core = project
+lazy val sqlpt = project
   .dependsOn(macros, columns)
   .settings(commonSettings)
   .settings(
@@ -52,6 +56,7 @@ lazy val macros = project
   .dependsOn(columns)
   .settings(commonSettings)
   .settings(
+    name := "sqlpt-macros",
     libraryDependencies ++= Seq(
       "org.scala-lang" % "scala-reflect" % Version.scala)
   )
@@ -59,10 +64,14 @@ lazy val macros = project
 lazy val columns = project
   .settings(commonSettings)
   .settings(
+    name := "sqlpt-columns",
     libraryDependencies ++= Seq(
       "org.scalaz" %% "scalaz-core" % Version.scalaz)
   )
 
 lazy val examples = project
-  .dependsOn(core)
+  .dependsOn(sqlpt)
   .settings(commonSettings)
+  .settings(
+    name := "sqlpt-examples"
+  )

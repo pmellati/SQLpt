@@ -1,10 +1,15 @@
 language: scala
 scala:
-  - 2.11.8
+- 2.11.8
 jdk:
-  - oraclejdk8
-  - oraclejdk7
+- oraclejdk8
+- oraclejdk7
+before_cache:
+  # Tricks to avoid unnecessary cache updates
+  - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
+  - find $HOME/.sbt -name "*.lock" -delete
 cache:
   directories:
-  - "$HOME/.ivy2"
-  - "$HOME/.m2"
+  - $HOME/.ivy2
+  - $HOME/.m2
+  - $HOME/.sbt/boot/
