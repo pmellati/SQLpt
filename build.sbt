@@ -27,7 +27,7 @@ lazy val commonSettings = Seq(
 
 lazy val sqlpt = project
   .in(file("."))
-  .aggregate(core, macros, columns)
+  .aggregate(core, macros, columns, examples)
   .dependsOn(core)
   .settings(commonSettings)
   .settings(
@@ -62,3 +62,7 @@ lazy val columns = project
     libraryDependencies ++= Seq(
       "org.scalaz" %% "scalaz-core" % Version.scalaz)
   )
+
+lazy val examples = project
+  .dependsOn(core)
+  .settings(commonSettings)
