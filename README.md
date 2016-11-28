@@ -41,3 +41,7 @@ In order to reduce confusion when carrying out this translation task, SQLpt mini
 Note that SQLpt is neither an ORM, nor a full fledged database access library. For instance, there is no concurrency support, or any concept of transactions.
 
 So if you are building a web application or web service and need to talk to your database in real-time, then SQLpt is not for you.
+
+## Related projects
+
+- [sbt-sqlpt-thrift](https://github.com/pmellati/sbt-sqlpt-thrift): sbt plugin for generating SQLpt table definitions from thrift files.
