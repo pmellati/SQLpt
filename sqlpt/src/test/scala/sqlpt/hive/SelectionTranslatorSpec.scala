@@ -4,7 +4,7 @@ import org.specs2.mutable.Specification
 import org.specs2.matcher.NoTypedEqual
 import sqlpt.api._
 import sqlpt.hive.{SelectionTranslator => translate}
-import test.hivevalid.HiveValid
+import hivevalid.HiveValid
 import TestingTables._
 
 class SelectionTranslatorSpec extends Specification with NoTypedEqual with test.Helpers {
