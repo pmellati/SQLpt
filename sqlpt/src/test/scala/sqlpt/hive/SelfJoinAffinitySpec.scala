@@ -1,22 +1,11 @@
 package sqlpt.hive
 
 import org.specs2.mutable.Spec
-import org.specs2.matcher._
 import sqlpt.api._
 import HqlWriter.toHql
+import test.Tables._
 
-class SelfJoinAffinitySpec extends Spec with test.Helpers {
-  object Cars extends TableDef {
-    override val name = "cars"
-
-    case class Columns(
-      id:    Column[Str] = "car_id",
-      price: Column[Num] = "price"
-    )
-
-    override def cols = Columns()
-  }
-
+class SelfJoinAffinitySpec extends Spec with test.Helpers with TablesEnv {
   "Affinities should be properly determined in the translated Hql" in {
     val query =
       Cars.table.join(Cars.table) {_.id === _.id}
@@ -29,8 +18,8 @@ class SelfJoinAffinitySpec extends Spec with test.Helpers {
     toHql(query) must beSameHqlAs(
       """
         |SELECT B.car_id, A.car_id, A.price * B.price
-        |FROM cars A
-        |JOIN cars B
+        |FROM db.cars A
+        |JOIN db.cars B
         |ON A.car_id = B.car_id
         |WHERE B.price = 12000.0
       """.stripMargin)
