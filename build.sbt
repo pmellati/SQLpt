@@ -3,7 +3,7 @@ lazy val Version = new {
   val scalaz    = "7.2.6"
   val shapeless = "2.3.2"
   val specs2    = "3.8.5.1"
-  val hivevalid = "0.1.4"
+  val hivevalid = "0.1.5"
 }
 
 lazy val commonSettings = Seq(
