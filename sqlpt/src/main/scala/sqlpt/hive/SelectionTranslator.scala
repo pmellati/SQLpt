@@ -33,15 +33,11 @@ object SelectionTranslator extends Translator[Selection[_ <: Product]] with Colu
 
       val (optParenOpen, optParenClose) = !source.isInstanceOf[Table[_]] ? ("(", ")") | ("", "")
 
-      val optAlias =
-        if (sources.length > 1 || !source.isInstanceOf[Table[_]])
-          affinityToLetter(index)
-        else
-          ""
+      val alias = affinityToLetter(index)
 
       val optOn = onCondition.fold("") {onCondition => s"ON ${toHql(onCondition, affinities)}"}
 
-      s"$fromOrJoinType $optParenOpen ${Internal.toHql(source)} $optParenClose $optAlias $optOn"
+      s"$fromOrJoinType $optParenOpen ${Internal.toHql(source)} $optParenClose $alias $optOn"
     }.mkString("\n")
 
     val whereClause = {
