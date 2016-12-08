@@ -95,6 +95,26 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           |FROM   db.cars A
         """.stripMargin)
       ).forall
+
+      case class ModelAndPrice(model: Column[Str], price: Column[Num])
+
+      Cars.table
+        .select(c =>
+          ModelAndPrice(c.model, c.price)
+        ) must translateTo("""
+          |SELECT A.model, A.price
+          |FROM   db.cars A
+        """.stripMargin)
+
+      Cars.table
+        .select(c => (
+          ModelAndPrice(c.model, c.price),
+          c.price,
+          c.website
+        )) must translateTo("""
+          |SELECT A.model, A.price, A.website
+          |FROM   db.cars A
+        """.stripMargin)
     }
 
     // TODO: Test other joins.
