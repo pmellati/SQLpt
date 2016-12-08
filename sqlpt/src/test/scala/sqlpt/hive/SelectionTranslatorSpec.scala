@@ -7,6 +7,7 @@ import sqlpt.api._
 import sqlpt.hive.{SelectionTranslator => translate}
 import test.Tables._
 
+// TODO: These tests need better organization.
 class SelectionTranslatorSpec extends Specification with NoTypedEqual with TablesEnv {
   "SelectionTranslator" should {
     "successfully translate a 'SimpleSelection' without joins" in {
