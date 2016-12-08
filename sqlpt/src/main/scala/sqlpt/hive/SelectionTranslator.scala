@@ -15,14 +15,7 @@ object SelectionTranslator extends Translator[Selection[_ <: Product]] with Colu
   def toHql(selection: SimpleSelection[_ <: Product, _ <: Product]): Hql = {
     val affinities = affinitiesOf(selection.source)
 
-    val selectedColumns = selection.cols match {
-      case singleColumn: Column[_] =>
-        toHql(singleColumn, affinities)
-      case product =>
-        product.productIterator.map {component =>
-          toHql(component.asInstanceOf[Column[_]], affinities)   // TODO: We may also get a product (tuple or case class) here.
-        }.mkString(", ")
-    }
+    val selectedColumns = columnsToHql(selection.cols, affinities)
 
     val optionallyDistinct = selection.isDistinct ? "DISTINCT" | ""
 
@@ -69,6 +62,20 @@ object SelectionTranslator extends Translator[Selection[_ <: Product]] with Colu
   }
 
 
+  def columnsToHql(cols: Product, affinities: Affinities): Hql = {
+    def columnHqls(cols: Product): List[String] = cols match {
+      case singleColumn: Column[_] =>
+        List(toHql(singleColumn, affinities))
+      case product =>
+        product.productIterator.toList.flatMap {component =>
+          columnHqls(component.asInstanceOf[Product])
+        }
+    }
+
+    columnHqls(cols).distinct.sorted.mkString(", ")
+  }
+
+  // TODO: Test individually.
   def toHql(column: Column[_], affinity: Affinities): Hql = column match {
     case sourceColumn: SourceColumn[_] =>
       s"${affinityToLetter(affinity.find{_._1 eq sourceColumn}.get._2)}.${sourceColumn.name}"
@@ -76,8 +83,17 @@ object SelectionTranslator extends Translator[Selection[_ <: Product]] with Colu
     case Equals(left, right) =>
       s"${toHql(left, affinity)} = ${toHql(right, affinity)}"
 
+    case GreaterThanOrEquals(left, right) =>
+      s"${toHql(left, affinity)} >= ${toHql(right, affinity)}"
+
+    case And(left, right) =>
+      s"${toHql(left, affinity)} AND ${toHql(right, affinity)}"
+
     case Multiplication(left, right) =>
       s"${toHql(left, affinity)} * ${toHql(right, affinity)}"
+
+    case LiteralStr(s) =>
+      s""""$s""""
 
     case LiteralNum(n) =>
       n.toString
