@@ -9,7 +9,7 @@ import test.Tables._
 
 class SelectionTranslatorSpec extends Specification with NoTypedEqual with TablesEnv {
   "SelectionTranslator" should {
-    "successfully translate a 'SimpleSelection'" in {
+    "successfully translate a 'SimpleSelection' without joins" in {
       Cars.table.select(_.make) must translateTo("""
         |SELECT A.manufacturer_id
         |FROM   db.cars A
@@ -95,7 +95,22 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           |FROM   db.cars A
         """.stripMargin)
       ).forall
+    }
 
+    "successfully translate a 'SimpleSelection' with joins" in {
+      Cars.table
+        .join(Cars.table) {_.model === _.make}
+        .where  {case (_, c2) => c2.price >= 1000}
+        .select {case (c1, c2) => (
+          c1,
+          c2.make,
+          c2.price
+        )} must translateTo("""
+          |SELECT A.car_id, A.manufacturer_id, A.model, A.price, A.website, B.manufacturer_id, B.price
+          |FROM  db.cars A
+          |JOIN  db.cars B ON A.model = B.manufacturer_id
+          |WHERE B.price >= 1000.0
+        """.stripMargin)
     }
   }
 
