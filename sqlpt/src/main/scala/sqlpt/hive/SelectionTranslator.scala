@@ -53,9 +53,9 @@ object SelectionTranslator extends Translator[Selection[_ <: Product]] with Colu
   private object Internal {
     def toHql(rows: Rows[_ <: Product]): Hql = rows match {
       case selection: SimpleSelection[_, _] =>
-        HqlWriter.toHql(selection)
+        SelectionTranslator(selection)
       case table: Table[_] =>
-        HqlWriter.toHql(table)
+        SelectionTranslator.toHql(table)
       case xx =>
         ???
     }

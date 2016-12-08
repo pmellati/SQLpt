@@ -97,6 +97,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
       ).forall
     }
 
+    // TODO: Test other joins.
     "successfully translate a 'SimpleSelection' with joins" in {
       Cars.table
         .join(Cars.table) {_.model === _.make}
@@ -110,6 +111,25 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           |FROM  db.cars A
           |JOIN  db.cars B ON A.model = B.manufacturer_id
           |WHERE B.price >= 1000.0
+        """.stripMargin)
+    }
+
+    // TODO: Test more cases.
+    "successfully translate 'SimpleSelection' with subqueries" in {
+      Cars.table
+        .where(_.price === 1000)
+        .selectDistinct(c =>
+          (c.price, c.model)
+        ).where {case (price, _) =>
+          price >= 3.50
+        }.select(identity) must translateTo("""
+          |SELECT A.model, A.price
+          |FROM (
+          |  SELECT DISTINCT A.model, A.price
+          |  FROM   db.cars A
+          |  WHERE  A.price = 1000.0
+          |) A
+          |WHERE A.price >= 3.5
         """.stripMargin)
     }
   }
