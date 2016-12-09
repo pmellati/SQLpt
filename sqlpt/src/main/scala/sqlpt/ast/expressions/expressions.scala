@@ -66,7 +66,7 @@ object JoinMode {
 }
 
 trait BaseJoined {
-  def ons: Seq[Column[Bool]]
+  def ons: Seq[Column[Bool]]    // TODO: Define type alias 'JoinCondition' for 'Column[Bool]'.
   def joinModes: Seq[JoinMode]
   def sourceSeq: Seq[Rows[_ <: Product]]
 

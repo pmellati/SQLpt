@@ -1,7 +1,7 @@
 package sqlpt.hive
 
 import sqlpt._, column._, Column._, Type._, Arithmetic._, Literals._, ast._, expressions._
-import ColumnAffinitiesExtraction._
+import JoinTranslationHelpers._
 import scalaz._, Scalaz._
 
 object SelectionTranslator extends Translator[Selection[_ <: Product]] with ColumnImplicits {
@@ -19,19 +19,42 @@ object SelectionTranslator extends Translator[Selection[_ <: Product]] with Colu
 
     val optionallyDistinct = selection.isDistinct ? "DISTINCT" | ""
 
-    val sources = sourcesOf(selection.source)
+    val fromClause = {
+      def src2Str(src: Rows[_ <: Product]): String = {
+        val needsParentheses =
+          !src.isInstanceOf[Table[_]] && !src.isInstanceOf[Outer[_]]
 
-    val fromClause = sources.zipWithIndex.map {case ((source, onCondition), index) =>
-      val fromOrJoinType = (index == 0) ? "FROM" | "JOIN"  // TODO: Can't always assume inner join.
+        val (optParenOpen, optParenClose) = needsParentheses ? ("(", ")") | ("", "")
 
-      val (optParenOpen, optParenClose) = !source.isInstanceOf[Table[_]] ? ("(", ")") | ("", "")
+        s"$optParenOpen ${Internal.toHql(src)} $optParenClose"
+      }
 
-      val alias = affinityToLetter(index)
+      selection.source match {
+        case joined: BaseJoined =>
+          val (firstSource, rest) = joinInfo(joined)
 
-      val optOn = onCondition.fold("") {onCondition => s"ON ${toHql(onCondition, affinities)}"}
+          val firstLine = s"""FROM ${src2Str(firstSource)} A"""
 
-      s"$fromOrJoinType $optParenOpen ${Internal.toHql(source)} $optParenClose $alias $optOn"
-    }.mkString("\n")
+          val restOfLines = rest.zipWithIndex map {case ((src, joinCond, joinMode), index) =>
+            val joinModeStr = joinMode match {
+              case JoinMode.Inner => "JOIN"
+              case JoinMode.Left  => "LEFT JOIN"
+              case JoinMode.Right => "RIGHT JOIN"
+            }
+
+            val alias = affinityToLetter(index + 1)
+
+            val onClause = s"ON ${toHql(joinCond, affinities)}"
+
+            s"""$joinModeStr ${src2Str(src)} $alias $onClause"""
+          }
+
+          (firstLine +: restOfLines) mkString "\n"
+
+        case nonJoined =>
+          s"""FROM ${src2Str(nonJoined)} A"""
+      }
+    }
 
     val whereClause = {
       val allFilters = selection.filters.reduceOption(_ and _)
@@ -40,7 +63,6 @@ object SelectionTranslator extends Translator[Selection[_ <: Product]] with Colu
       }
     }
 
-    // TODO: Here we should also decide whether the source requires parens and / or aliases.
     s"""SELECT $optionallyDistinct $selectedColumns
         |$fromClause
         |$whereClause
@@ -56,8 +78,10 @@ object SelectionTranslator extends Translator[Selection[_ <: Product]] with Colu
         SelectionTranslator(selection)
       case table: Table[_] =>
         SelectionTranslator.toHql(table)
-      case xx =>
-        ???
+      case Outer(r) =>
+        toHql(r)
+      case unimplemented =>
+        throw new NotImplementedError(s"Not Implemented: Internal.toHql($unimplemented)")
     }
   }
 
@@ -103,5 +127,58 @@ object SelectionTranslator extends Translator[Selection[_ <: Product]] with Colu
   }
 
   private def affinityToLetter(affinity: Affinity): String =
-    ('A' to 'Z').map(_.toString).toSeq(affinity)
+    ('A' to 'Z')(affinity).toString
+}
+
+
+// TODO: Reconsider the names and put into separate file.
+object JoinTranslationHelpers {
+  type Affinity      = Int
+  type Affinities    = Seq[(SourceColumn[_ <: Type], Affinity)]    // TODO: Should be a Map that uses reference equality as equality for keys.
+  type JoinCondition = Column[Bool]
+
+  def affinitiesOf(rows: Rows[_ <: Product]): Affinities =
+    sourcesOfJoin(rows).zipWithIndex.foldLeft(Seq.empty: Affinities) {case (affinities, (src, affinity)) =>
+      affinities ++ sourceColumnsWithAffinity(src, affinity)
+    }
+
+  def joinInfo(joined: BaseJoined):
+  (
+    Rows[_ <: Product],
+    Seq[(Rows[_ <: Product], JoinCondition, JoinMode)]
+  ) =
+    joined.sourceSeq.head ->
+      joined.sourceSeq.tail.zip(joined.ons).zip(joined.joinModes).map {case ((src, cond), mode) =>
+        (src, cond, mode)
+      }
+
+
+  def sourcesOfJoin(rows: Rows[_ <: Product]): Seq[Rows[_ <: Product]] = rows match {
+    case joined: BaseJoined =>
+      joined.sourceSeq
+
+    case nonJoin =>
+      Seq(nonJoin)
+  }
+
+  protected def sourceColumnsWithAffinity(rows: Rows[_ <: Product], affinity: Affinity): Affinities =
+    sourceColumnsIn(rows.cols).map(_ -> affinity)
+
+  protected def sourceColumnsIn(cols: Product): Seq[SourceColumn[_ <: Type]] = cols match {
+    case column: Column[_] =>
+      sourceColumnsInColumn(column)
+    case tupleOrCaseClass: Product =>
+      tupleOrCaseClass.productIterator.flatMap {col =>
+        sourceColumnsIn(col.asInstanceOf[Product])
+      }.toSeq
+  }
+
+  protected def sourceColumnsInColumn(column: Column[_ <: Type]): Seq[SourceColumn[_ <: Type]] = column match {
+    case sourceColumn: SourceColumn[_] =>
+      Seq(sourceColumn)
+    case Equals(left, right) =>
+      sourceColumnsInColumn(left) ++ sourceColumnsIn(right)
+    case _ =>
+      ???   // TODO
+  }
 }

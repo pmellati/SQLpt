@@ -133,6 +133,20 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           |JOIN  db.cars B ON A.model = B.manufacturer_id
           |WHERE B.price >= 1000.0
         """.stripMargin)
+
+      Cars.table
+        .leftJoin(Cars.table) {_.model === _.make}
+        .where  {case (c1, _) => c1.price >= 1000}
+        .select {case (c1, c2) => (
+          c1.id,
+          c2(_.make),
+          c2(_.price)
+        )} must translateTo("""
+          |SELECT A.car_id, B.manufacturer_id, B.price
+          |FROM   db.cars A
+          |LEFT JOIN  db.cars B ON A.model = B.manufacturer_id
+          |WHERE  A.price >= 1000.0
+        """.stripMargin)
     }
 
     // TODO: Test more cases.
