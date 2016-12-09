@@ -4,7 +4,6 @@ import hivevalid.Matchers._
 import org.specs2.mutable.Specification
 import org.specs2.matcher.{Matcher, NoTypedEqual}
 import sqlpt.api._
-import sqlpt.hive.{SelectionTranslator => translate}
 import test.Tables._
 
 // TODO: These tests need better organization.
@@ -170,5 +169,5 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
   }
 
   private def translateTo(hql: Hql): Matcher[Selection[_ <: Product]] =
-    beSameHqlAs(hql) ^^ translate
+    beSameHqlAs(hql) ^^ Translators.selection
 }
