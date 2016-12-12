@@ -48,9 +48,8 @@ lazy val sqlpt = project
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "com.chuusai" %% "shapeless" % Version.shapeless,
-
-      "org.scalaz" %% "scalaz-core" % Version.scalaz,
+      "com.chuusai" %% "shapeless"   % Version.shapeless,
+      "org.scalaz"  %% "scalaz-core" % Version.scalaz,
 
       "org.specs2" %% "specs2-core"          % Version.specs2    % "test",
       "org.specs2" %% "specs2-matcher-extra" % Version.specs2    % "test",
@@ -72,7 +71,8 @@ lazy val columns = project
   .settings(
     name := "sqlpt-columns",
     libraryDependencies ++= Seq(
-      "org.scalaz" %% "scalaz-core" % Version.scalaz)
+      "org.scala-lang" %  "scala-reflect" % Version.scala,
+      "org.scalaz"     %% "scalaz-core"   % Version.scalaz)
   )
 
 lazy val examples = project

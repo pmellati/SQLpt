@@ -2,6 +2,7 @@ package sqlpt.column
 
 import scalaz.NonEmptyList
 import Column._, Type._
+import scala.reflect.runtime.universe.TypeTag
 
 sealed trait Column[+T <: Column.Type] extends Product
 
@@ -20,7 +21,9 @@ object Column {
     type Bool = Bool.type
   }
 
-  case class SourceColumn[T <: Type](tableName: String, name: String) extends Column[T]
+  case class SourceColumn[T <: Type : TypeTag](tableName: String, name: String) extends Column[T] {
+    def columnTypeTag: TypeTag[T] = implicitly
+  }
 }
 
 object Arithmetic {

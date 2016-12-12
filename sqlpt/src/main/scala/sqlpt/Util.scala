@@ -8,6 +8,8 @@ import sqlpt.ast.statements.Statements._
 import sqlpt.ast.statements.StringStatement
 import sqlpt.ast.statements.Insertion._
 
+import scala.reflect.runtime.universe.TypeTag
+
 object Util {
   def withTempTable[Cols <: Product, R](selection: Selection[Cols])(action: (=> Table[Cols]) => Statements): Statements = {
     val uniqueTempTableName =
@@ -40,6 +42,6 @@ object Util {
 
     final def table = Table(name, cols)
 
-    protected implicit def str2Column[T <: Type](colName: String): Column[T] = SourceColumn[T](name, colName)
+    protected implicit def str2Column[T <: Type : TypeTag](colName: String): Column[T] = SourceColumn[T](name, colName)
   }
 }
