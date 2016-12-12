@@ -163,7 +163,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
     }
 
     // TODO: Test more cases.
-    "successfully translate 'SimpleSelection' with subqueries" in {
+    "successfully translate a 'SimpleSelection' with subqueries" in {
       Cars.table
         .where(_.price === 1000)
         .selectDistinct(c =>

@@ -64,9 +64,9 @@ object Translators extends ColumnImplicits {
     }
 
     s"""SELECT $optionallyDistinct $selectedColumns
-        |$fromClause
-        |$whereClause
-      """.stripMargin
+      |$fromClause
+      |$whereClause
+    """.stripMargin
   }
 
   private def table: Translator[Table[_]] = _.name
