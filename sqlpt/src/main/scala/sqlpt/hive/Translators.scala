@@ -1,6 +1,6 @@
 package sqlpt.hive
 
-import sqlpt._, column._, Column._, Type._, Arithmetic._, Literals._, AggregationFuncs._, ast._, expressions._
+import sqlpt._, column._, Column._, Arithmetic._, Literals._, AggregationFuncs._, ast._, expressions._
 import JoinTranslationHelpers._
 import scalaz._, Scalaz._
 
@@ -15,9 +15,13 @@ object Translators extends ColumnImplicits {
   def simpleSelection: Translator[SimpleSelection[_ <: Product, _ <: Product]] = {selection =>
     val affinities = affinitiesOf(selection.source)
 
-    val selectedColumns = columnsProduct(selection.cols, affinities)
+    val selectClause = {
+      val selectedColumns = columnsProduct(selection.cols, affinities)
 
-    val optionallyDistinct = selection.isDistinct ? "DISTINCT" | ""
+      val optionallyDistinct = selection.isDistinct ? "DISTINCT" | ""
+
+      s"SELECT $optionallyDistinct $selectedColumns"
+    }
 
     val fromClause = {
       def src2Str(src: Rows[_ <: Product]): String = {
@@ -63,10 +67,11 @@ object Translators extends ColumnImplicits {
       }
     }
 
-    s"""SELECT $optionallyDistinct $selectedColumns
-      |$fromClause
-      |$whereClause
-    """.stripMargin.trim
+    s"""
+       |$selectClause
+       |$fromClause
+       |$whereClause
+     """.stripMargin.trim
   }
 
   def aggrSelection: Translator[AggrSelection[_ <: Product, _ <: Product, _ <: Product]] = {selection =>
