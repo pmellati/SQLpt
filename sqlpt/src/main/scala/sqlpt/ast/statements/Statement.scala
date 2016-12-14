@@ -22,6 +22,7 @@ object Insertion {
   }
 
   def insert(selection: Selection[_ <: Product]) = new {
+    // TODO: Support a more type-safe version where the parameter is a 'Table' instance.
     def into(tableName: String) =
       Insertion(tableName, Mode.Into, Seq.empty, selection)
 
