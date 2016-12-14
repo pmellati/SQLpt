@@ -1,6 +1,6 @@
 package sqlpt.hive
 
-import sqlpt._, column._, Column._, Type._, Arithmetic._, Literals._, ast._, expressions._
+import sqlpt._, column._, Column._, Type._, Arithmetic._, Literals._, AggregationFuncs._, ast._, expressions._
 import JoinTranslationHelpers._
 import scalaz._, Scalaz._
 
@@ -8,8 +8,8 @@ object Translators extends ColumnImplicits {
   def selection: Translator[Selection[_ <: Product]] = {
     case ss: SimpleSelection[_, _] =>
       simpleSelection(ss)
-    case _ =>
-      ???
+    case as: AggrSelection[_, _, _] =>
+      aggrSelection(as)
   }
 
   def simpleSelection: Translator[SimpleSelection[_ <: Product, _ <: Product]] = {selection =>
@@ -66,7 +66,31 @@ object Translators extends ColumnImplicits {
     s"""SELECT $optionallyDistinct $selectedColumns
       |$fromClause
       |$whereClause
-    """.stripMargin
+    """.stripMargin.trim
+  }
+
+  def aggrSelection: Translator[AggrSelection[_ <: Product, _ <: Product, _ <: Product]] = {selection =>
+    val simpleSelectionTranslation: Hql = {
+      val asSimpleSelection = SimpleSelection(selection.cols, selection.source, selection.sourceFilters)
+      simpleSelection(asSimpleSelection)
+    }
+
+    val affinities = affinitiesOf(selection.source)
+
+    val groupByClause = s"GROUP BY ${columnsProduct(selection.groupingCols, affinities)}"
+
+    val havingClause = {
+      val allFilters = selection.groupFilters.reduceOption(_ and _)
+      allFilters.fold("") {allFilters =>
+        s"HAVING ${singleColumn(allFilters, affinities)}"
+      }
+    }
+
+    s"""
+       |$simpleSelectionTranslation
+       |$groupByClause
+       |$havingClause
+     """.stripMargin.trim
   }
 
   private def table: Translator[Table[_]] = _.name
@@ -96,27 +120,33 @@ object Translators extends ColumnImplicits {
   }
 
   // TODO: Test in isolation.
-  private def singleColumn(c: Column[_], affinity: Affinities): Hql = c match {
+  private def singleColumn(c: Column[_], affinities: Affinities): Hql = c match {
     case sourceColumn: SourceColumn[_] =>
-      s"${affinityToLetter(affinity.find{_._1 eq sourceColumn}.get._2)}.${sourceColumn.name}"
+      s"${affinityToLetter(affinities.find{_._1 eq sourceColumn}.get._2)}.${sourceColumn.name}"
 
     case Equals(left, right) =>
-      s"${singleColumn(left, affinity)} = ${singleColumn(right, affinity)}"
+      s"${singleColumn(left, affinities)} = ${singleColumn(right, affinities)}"
 
     case GreaterThanOrEquals(left, right) =>
-      s"${singleColumn(left, affinity)} >= ${singleColumn(right, affinity)}"
+      s"${singleColumn(left, affinities)} >= ${singleColumn(right, affinities)}"
 
     case And(left, right) =>
-      s"${singleColumn(left, affinity)} AND ${singleColumn(right, affinity)}"
+      s"${singleColumn(left, affinities)} AND ${singleColumn(right, affinities)}"
 
     case Multiplication(left, right) =>
-      s"${singleColumn(left, affinity)} * ${singleColumn(right, affinity)}"
+      s"${singleColumn(left, affinities)} * ${singleColumn(right, affinities)}"
 
     case LiteralStr(s) =>
       s""""$s""""
 
     case LiteralNum(n) =>
       n.toString
+
+    case Max(col) =>
+      s"MAX(${singleColumn(col, affinities)})"
+
+    case Count(col) =>
+      s"COUNT(${singleColumn(col, affinities)})"
 
     case unimplemented =>
       throw new NotImplementedError(s"Not Implemented: toHql($unimplemented)")

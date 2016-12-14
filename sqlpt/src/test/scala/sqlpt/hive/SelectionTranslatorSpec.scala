@@ -180,6 +180,25 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           |WHERE A.price >= 3.5
         """.stripMargin)
     }
+
+    "successfully translate a 'AggrSelection'" in {
+      Cars.table
+        .where(_.price >= 1000)
+        .groupBy(_.make)
+        .select {case (make, aggr) => (
+          make,
+          aggr.max(_.price),
+          aggr.count(_.model)
+        )}.having {case (_, _, count) =>
+          count === 14300
+        } must translateTo("""
+          |SELECT   A.manufacturer_id, COUNT(A.model), MAX(A.price)
+          |FROM     db.cars A
+          |WHERE    A.price >= 1000.0
+          |GROUP BY A.manufacturer_id
+          |HAVING   COUNT(A.model) = 14300.0
+        """.stripMargin)
+    }
   }
 
   private def translateTo(hql: Hql): Matcher[Selection[_ <: Product]] =

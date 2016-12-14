@@ -186,6 +186,7 @@ case class Grouped[GrpCols <: Product, Src <: Product](
     AggrSelection[Cols, GrpCols, Src](f(groupingCols, new Aggregator), groupingCols, source, sourceFilters, Set.empty)
 }
 
+// TODO: Do these support 'DISTINCT' in SQL?
 case class AggrSelection[Cols <: Product, GrpCols <: Product, Src <: Product](
   cols:          Cols,
   groupingCols:  GrpCols,
