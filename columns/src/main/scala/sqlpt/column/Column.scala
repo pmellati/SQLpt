@@ -21,10 +21,21 @@ object Column {
     type Bool = Bool.type
   }
 
-  case class SourceColumn[T <: Type : TypeTag](tableName: String, name: String) extends Column[T] {
+  // TODO: 'SourceColumn' doesn't have to be nested in 'Column'.
+  case class SourceColumn[T <: Type : TypeTag]
+  (tableName: String, name: String)
+  (implicit p: SourceColumn.InstantiationPermission) extends Column[T] {
     def columnTypeTag: TypeTag[T] = implicitly
   }
+
+  object SourceColumn {
+    class InstantiationPermission private[sqlpt] ()
+  }
 }
+
+sealed trait PartitionCol[T <: Type]
+case class PartitionKey[T <: Type : TypeTag](name: String) extends PartitionCol[T]
+case class PartitionVal[T <: Type : TypeTag](value: Column[T]) extends PartitionCol[T]
 
 object Arithmetic {
   case class Multiplication(left: Column[Num], right: Column[Num]) extends Column[Num]

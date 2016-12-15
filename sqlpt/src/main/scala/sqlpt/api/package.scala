@@ -5,7 +5,8 @@ import ast.{statements  => stmt}
 
 package object api extends column.ColumnImplicits {
   type Selection[Cols <: Product] = expr.Selection[Cols]
-  type Table[Cols <: Product]     = expr.Table[Cols]
+
+  type Table[Cols <: Product, Partitioning <: expr.TablePartitioning] = expr.Table[Cols, Partitioning]
 
   implicit def rows2Filtered[Src <: Product](rows: expr.Rows[Src]): expr.Filtered[Src] =
     expr.Filtered(rows, Set.empty)
@@ -22,11 +23,9 @@ package object api extends column.ColumnImplicits {
     stmt.Statements.statementToStatements(statement)
 
   type Insertion = stmt.Insertion.Insertion
-  def insert(selection: Selection[_ <: Product]) =
-    stmt.Insertion.insert(selection)
 
-  def withTempTable[Cols <: Product, R](selection: Selection[Cols])(action: (=> Table[Cols]) => Statements) =
-    Util.withTempTable[Cols, R](selection)(action)
+  def withTempTable[Cols <: Product, R](selection: Selection[Cols])(action: (=> Table[Cols, expr.TablePartitioning.Unpartitioned]) => Statements) = ???
+//    Util.withTempTable[Cols, R](selection)(action)
 
   type TableDef = Util.TableDef
 
