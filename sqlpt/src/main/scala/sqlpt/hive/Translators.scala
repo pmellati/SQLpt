@@ -1,6 +1,6 @@
 package sqlpt.hive
 
-import sqlpt._, column._, Column._, Arithmetic._, Literals._, AggregationFuncs._, ast._, expressions._, statements.Insertion.{Mode => InsertionMode, Insertion}
+import sqlpt._, column._, Column._, Arithmetic._, Literals._, AggregationFuncs._, ast._, expressions._, statements.Insertion
 import JoinTranslationHelpers._
 import scalaz._, Scalaz._
 
@@ -100,9 +100,9 @@ object Translators extends ColumnImplicits {
 
   def insertion: Translator[Insertion] = {insertion =>
     val (insertMode, ifNotExists) = insertion.mode match {
-      case InsertionMode.Into =>
+      case Insertion.Mode.Into =>
         ("INTO", "")
-      case InsertionMode.OverwriteTable(ifNotExs) =>
+      case Insertion.Mode.OverwriteTable(ifNotExs) =>
         ("OVERWRITE", ifNotExs ? "IF NOT EXISTS" | "")
     }
 

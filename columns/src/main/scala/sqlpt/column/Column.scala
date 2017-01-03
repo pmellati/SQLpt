@@ -33,9 +33,17 @@ object Column {
   }
 }
 
+trait ColumnTypeConversions {
+  implicit class Num2Str(colNum: Column[Num]) {
+    def asStr = colNum.asInstanceOf[Column[Str]]
+  }
+}
+
 sealed trait PartitionCol[T <: Type]
-case class PartitionKey[T <: Type : TypeTag](name: String) extends PartitionCol[T]
-case class PartitionVal[T <: Type : TypeTag](value: Column[T]) extends PartitionCol[T]
+object PartitionCol {
+  case class Key[T <: Type : TypeTag](name: String) extends PartitionCol[T]
+  case class Val[T <: Type : TypeTag](value: Column[T]) extends PartitionCol[T]
+}
 
 object Arithmetic {
   case class Multiplication(left: Column[Num], right: Column[Num]) extends Column[Num]
@@ -104,13 +112,13 @@ object Literals {
   case class LiteralBool(b: Boolean) extends Column[Bool]
 
   trait Implicits {
-    implicit def literal[N : Numeric](n: N): LiteralNum =
+    def literal[N : Numeric](n: N): LiteralNum =
       LiteralNum(implicitly[Numeric[N]].toDouble(n))
 
-    implicit def literal(s: String): LiteralStr =
+    def literal(s: String): LiteralStr =
       LiteralStr(s)
 
-    implicit def literal(b: Boolean): LiteralBool =
+    def literal(b: Boolean): LiteralBool =
       LiteralBool(b)
   }
 }
@@ -185,3 +193,4 @@ trait ColumnImplicits
   with    Literals.Implicits
   with    Misc.Implicits
   with    Nullables.Implicits
+  with    ColumnTypeConversions

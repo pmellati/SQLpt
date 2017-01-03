@@ -2,14 +2,13 @@ package sqlpt
 
 import ast.{expressions => expr}
 import ast.{statements  => stmt}
+import scala.reflect.runtime.universe.TypeTag
 
-package object api extends column.ColumnImplicits {
+package object api extends column.ColumnImplicits with stmt.Insertion.Implicits {
   type Selection[Cols <: Product] = expr.Selection[Cols]
 
-  type Table[Cols <: Product, Partitioning <: expr.TablePartitioning] = expr.Table[Cols, Partitioning]
-
-  implicit def rows2Filtered[Src <: Product](rows: expr.Rows[Src]): expr.Filtered[Src] =
-    expr.Filtered(rows, Set.empty)
+  type Table[Cols <: Product, Partitioning <: expr.Table.Partitioning] = expr.Table[Cols, Partitioning]
+  val  Table = expr.Table
 
   type Statement       = stmt.Statement
   type StringStatement = stmt.StringStatement
@@ -19,15 +18,16 @@ package object api extends column.ColumnImplicits {
   def statements(s: Statements, ss: Statements*) =
     stmt.Statements.statements(s, ss: _*)
 
-  implicit def statementToStatements(statement: Statement): Statements =
-    stmt.Statements.statementToStatements(statement)
+  type Insertion = stmt.Insertion
 
-  type Insertion = stmt.Insertion.Insertion
+  def withTempTable[Cols <: Product, R]
+  (selection: Selection[Cols])
+  (action: (=> Table[Cols, expr.Table.Partitioning.Unpartitioned]) => Statements) =
+    Util.withTempTable[Cols, R](selection)(action)
 
-  def withTempTable[Cols <: Product, R](selection: Selection[Cols])(action: (=> Table[Cols, expr.TablePartitioning.Unpartitioned]) => Statements) = ???
-//    Util.withTempTable[Cols, R](selection)(action)
-
-  type TableDef = Util.TableDef
+  type TableDef        = Util.TableDef
+  type PartitioningDef = Util.PartitioningDef
+  type NoPartitioning  = Util.NoPartitioning
 
   type Column[+T <: column.Column.Type] = column.Column[T]
   val  Column                           = column.Column
@@ -50,6 +50,15 @@ package object api extends column.ColumnImplicits {
   val DateAdd       = column.Dates.DateAdd
 
   type Columns[T] = sqlpt.Columns[T]
+
+  implicit def rows2Filtered[Src <: Product](rows: expr.Rows[Src]): expr.Filtered[Src] =
+    expr.Filtered(rows, Set.empty)
+
+  implicit def statementToStatements(statement: Statement): Statements =
+    stmt.Statements.statementToStatements(statement)
+
+  implicit def col2PartionColVal[T <: Column.Type : TypeTag](col: Column[T]): column.PartitionCol[T] =
+    column.PartitionCol.Val(col)
 
   implicit def typeCheck[T]: Columns[T] =
     macro ColumnsTypeChecking.typeCheck_impl[T]
