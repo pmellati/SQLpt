@@ -2,7 +2,6 @@ package sqlpt
 
 import ast.{expressions => expr}
 import ast.{statements  => stmt}
-import scala.reflect.runtime.universe.TypeTag
 
 package object api extends column.ColumnImplicits with stmt.Insertion.Implicits {
   type Selection[Cols <: Product] = expr.Selection[Cols]
@@ -57,8 +56,9 @@ package object api extends column.ColumnImplicits with stmt.Insertion.Implicits 
   implicit def statementToStatements(statement: Statement): Statements =
     stmt.Statements.statementToStatements(statement)
 
-  implicit def col2PartionColVal[T <: Column.Type : TypeTag](col: Column[T]): column.PartitionCol[T] =
-    column.PartitionCol.Val(col)
+//  This compiles but trips intellij, even if it is not defined as implicit!
+//  implicit def col2PartionColVal[T <: Column.Type : TypeTag](col: Column[T]): column.PartitionCol[T] =
+//    column.PartitionCol.Val(col)
 
   implicit def typeCheck[T]: Columns[T] =
     macro ColumnsTypeChecking.typeCheck_impl[T]

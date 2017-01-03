@@ -62,9 +62,9 @@ object partitioned_and_unpartitioned_insert {
       )
     }
   ).intoPartition(employee => Employees.Partition(
-    year  = employee.age,
-    month = literal(1),
-    day   = literal(22)
+    year  = ???,
+    month = ???,
+    day   = ???
   ))
 
   Games.table.insert(
