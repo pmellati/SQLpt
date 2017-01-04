@@ -9,6 +9,7 @@ import sqlpt.ast.statements.Statements._
 import sqlpt.ast.statements.StringStatement
 import sqlpt.ast.statements.Insertion
 
+import scala.annotation.StaticAnnotation
 import scala.reflect.runtime.universe.TypeTag
 
 object Util extends Insertion.Implicits {
@@ -43,18 +44,59 @@ object Util extends Insertion.Implicits {
     type Partitioning <: Table.Partitioning
 
     def name:         String
-    def cols:         SourceColumn.InstantiationPermission => Columns
-    def partitioning: Partitioning
+    def partitioning: Partitioning  // TODO: Should become a private def, like 'cols'.
 
-    final def table = Table(name, cols(new SourceColumn.InstantiationPermission), partitioning)
+    final def table(implicit ctt: TypeTag[Columns]) = Table(name, cols, partitioning)
 
-    protected implicit def str2Column[T <: Type : TypeTag]
-    (colName: String)
-    (implicit p: SourceColumn.InstantiationPermission): Column[T] = SourceColumn[T](name, colName)
+    protected type Named = TableDefAnnotations.Named
 
-    protected def col[T <: Type : TypeTag]
-    (colName: String)
-    (implicit p: SourceColumn.InstantiationPermission): Column[T] = str2Column(colName)
+    /** TODO: We may be able to check at compile-time that 'Columns' is a case class. See:
+      *   http://stackoverflow.com/questions/30233178/how-to-check-if-some-t-is-a-case-class-at-compile-time-in-scala
+      */
+    private def cols(implicit ctt: TypeTag[Columns]): Columns = {
+      import reflect.runtime.universe._
+
+      val typ = typeOf[Columns]
+
+      // TODO: Replace with a compile-time check.
+      if (!typ.typeSymbol.isClass || !typ.typeSymbol.asClass.isCaseClass)
+        throw new RuntimeException(s"${typ.typeSymbol.fullName} is not a case class.")
+
+      /** TODO: Is there a better way to do this?
+        * This approach is error prone, as one has to remember to keep this function in sync with the set of possible
+        * column types.
+        */
+      def columnTypeToTypeTag(t: reflect.runtime.universe.Type): TypeTag[_ <: Column.Type] =
+        if      (t <:< typeOf[Type.Num]) implicitly[TypeTag[Type.Num]]
+        else if (t <:< typeOf[Type.Str]) implicitly[TypeTag[Type.Str]]
+        else sys.error("Bug!!")
+
+      val ctor = typ.typeSymbol.asClass.typeSignature.members.filter(_.isConstructor).head.asMethod
+
+      val params = ctor.paramLists.head
+
+      val columns = params.map {param =>
+        val columnName = param.annotations.find {
+          _.tree.tpe <:< typeOf[Named]}
+        .map {
+          _.tree.children.tail.head.toString   /** See: [[scala.reflect.api.Annotations]] */
+        } getOrElse
+          param.name.toString
+
+        SourceColumn(tableName, columnName)(columnTypeToTypeTag(param.typeSignature.typeArgs.head))
+      }
+
+      val tableDefClassLoaderMirror = runtimeMirror(this.getClass.getClassLoader)
+      val tableDefInstanceMirror = tableDefClassLoaderMirror.reflect(this)
+      val columnsClassMirror = tableDefInstanceMirror.reflectClass(typ.typeSymbol.asClass)
+      columnsClassMirror.reflectConstructor(ctor).apply(columns: _*).asInstanceOf[Columns]
+    }
+
+    private def tableName = name
+  }
+
+  object TableDefAnnotations {
+    class Named(val columnName: String) extends StaticAnnotation
   }
 
   trait PartitioningDef {

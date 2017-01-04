@@ -22,14 +22,8 @@ object Column {
   }
 
   // TODO: 'SourceColumn' doesn't have to be nested in 'Column'.
-  case class SourceColumn[T <: Type : TypeTag]
-  (tableName: String, name: String)
-  (implicit p: SourceColumn.InstantiationPermission) extends Column[T] {
+  case class SourceColumn[T <: Type : TypeTag](tableName: String, name: String) extends Column[T] {
     def columnTypeTag: TypeTag[T] = implicitly
-  }
-
-  object SourceColumn {
-    class InstantiationPermission private[sqlpt] ()
   }
 }
 
