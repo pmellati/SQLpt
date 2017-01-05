@@ -5,7 +5,7 @@ import org.specs2.matcher.{Expectable, MatchResult, Matcher, NoTypedEqual}
 import sqlpt.api._
 import sqlpt.column.Column.SourceColumn
 
-import reflect.runtime.universe._
+import reflect.runtime.universe.{Type => _, _}
 
 class TableDefSpec extends Specification with NoTypedEqual {
   "Util.TableDef" should {
@@ -21,7 +21,7 @@ class TableDefSpec extends Specification with NoTypedEqual {
     }
   }
 
-  private def beColumn[T <: Column.Type : TypeTag](tableName: String, columnName: String) = hackyMatcher[Column[T]] {c =>
+  private def beColumn[T <: Type : TypeTag](tableName: String, columnName: String) = hackyMatcher[Column[T]] {c =>
     c must beAnInstanceOf[SourceColumn[T]]
     val sc = c.asInstanceOf[SourceColumn[T]]
 
@@ -42,5 +42,21 @@ class TableDefSpec extends Specification with NoTypedEqual {
   private def hackyMatcher[T](res: T => MatchResult[Any]): Matcher[T] = new Matcher[T] {
     override def apply[S <: T](t: Expectable[S]): MatchResult[S] =
       res(t.value).asInstanceOf[MatchResult[S]]
+  }
+
+  "Util.TableDef.columnTypeToTypeTag(...)" should {
+    "Handle all column types" in {
+      import Type._
+
+      def mustHandle[T <: Type : TypeTag] =
+        Util.TableDef.columnTypeToTypeTag(typeOf[T]).tpe =:= typeTag[T].tpe must_== true
+
+      mustHandle[Str]
+      mustHandle[Num]
+      mustHandle[Bool]
+      mustHandle[Nullable[Str]]
+      mustHandle[Nullable[Num]]
+      mustHandle[Nullable[Bool]]
+    }
   }
 }

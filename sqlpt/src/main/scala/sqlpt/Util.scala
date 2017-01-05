@@ -2,15 +2,14 @@ package sqlpt
 
 import java.util.UUID.randomUUID
 
-import sqlpt.column._
-import Column._
+import sqlpt.column._, Column._, Type._
 import sqlpt.ast.expressions.{Selection, Table}, Table.Partitioning.Unpartitioned
 import sqlpt.ast.statements.Statements._
 import sqlpt.ast.statements.StringStatement
 import sqlpt.ast.statements.Insertion
 
 import scala.annotation.StaticAnnotation
-import scala.reflect.runtime.universe.TypeTag
+import reflect.runtime.universe.{Type => _, _}
 
 object Util extends Insertion.Implicits {
   def withTempTable[Cols <: Product, R]
@@ -40,6 +39,8 @@ object Util extends Insertion.Implicits {
   }
 
   trait TableDef {
+    import TableDef._
+
     type Columns      <: Product
     type Partitioning <: Table.Partitioning
 
@@ -48,11 +49,9 @@ object Util extends Insertion.Implicits {
 
     final def table(implicit ctt: TypeTag[Columns]) = Table(name, instantiateColumnsReflectively, partitioning)
 
-    protected type Named = TableDefAnnotations.Named
+    protected type Named = Annotations.Named
 
     private def instantiateColumnsReflectively(implicit ctt: TypeTag[Columns]): Columns = {
-      import reflect.runtime.universe._
-
       val typ = typeOf[Columns]
 
       /** TODO: Replace with a compile-time check.
@@ -60,15 +59,6 @@ object Util extends Insertion.Implicits {
         */
       if (!typ.typeSymbol.isClass || !typ.typeSymbol.asClass.isCaseClass)
         throw new RuntimeException(s"${typ.typeSymbol.fullName} is not a case class.")
-
-      /** TODO: Is there a better way to do this?
-        * This approach is error prone, as one has to remember to keep this function in sync with the set of possible
-        * column types.
-        */
-      def columnTypeToTypeTag(t: reflect.runtime.universe.Type): TypeTag[_ <: Column.Type] =
-        if      (t <:< typeOf[Type.Num]) implicitly[TypeTag[Type.Num]]
-        else if (t <:< typeOf[Type.Str]) implicitly[TypeTag[Type.Str]]
-        else sys.error("Bug!!")
 
       val ctor = typ.typeSymbol.asClass.typeSignature.members.filter(_.isConstructor).head.asMethod
 
@@ -95,8 +85,25 @@ object Util extends Insertion.Implicits {
     private def tableName = name
   }
 
-  object TableDefAnnotations {
-    class Named(val columnName: String) extends StaticAnnotation
+  object TableDef {
+    object Annotations {
+      class Named(val columnName: String) extends StaticAnnotation
+    }
+
+    // TODO: Is there a better way to do this? We may forget to add an entry here for newly added column types.
+    protected[sqlpt] def columnTypeToTypeTag(t: reflect.runtime.universe.Type): TypeTag[_ <: Column.Type] =
+      Seq(
+        typeOf[Num]            -> typeTag[Num],
+        typeOf[Nullable[Num]]  -> typeTag[Nullable[Num]],
+        typeOf[Str]            -> typeTag[Str],
+        typeOf[Nullable[Str]]  -> typeTag[Nullable[Str]],
+        typeOf[Bool]           -> typeTag[Bool],
+        typeOf[Nullable[Bool]] -> typeTag[Nullable[Bool]]
+      ).collect {
+        case (typ, typTag) if t <:< typ => typTag
+      }.headOption.getOrElse(
+        sys.error(s"Could not create a TypeTag from type $t. This is a bug if $t is a column type.")
+      )
   }
 
   trait PartitioningDef {
