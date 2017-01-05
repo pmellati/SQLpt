@@ -8,8 +8,9 @@ import sqlpt.ast.statements.Statements._
 import sqlpt.ast.statements.StringStatement
 import sqlpt.ast.statements.Insertion
 
-import scala.annotation.StaticAnnotation
-import reflect.runtime.universe.{Type => _, _}
+import annotation.StaticAnnotation
+import reflect.runtime.universe.{Type => ReflectType, Mirror => _, _}
+import reflect.api._
 
 object Util extends Insertion.Implicits {
   def withTempTable[Cols <: Product, R]
@@ -54,6 +55,8 @@ object Util extends Insertion.Implicits {
     private def instantiateColumnsReflectively(implicit ctt: TypeTag[Columns]): Columns = {
       val typ = typeOf[Columns]
 
+      val tableDefClassLoaderMirror = runtimeMirror(this.getClass.getClassLoader)
+
       /** TODO: Replace with a compile-time check.
         * See: http://stackoverflow.com/questions/30233178/how-to-check-if-some-t-is-a-case-class-at-compile-time-in-scala
         */
@@ -73,37 +76,34 @@ object Util extends Insertion.Implicits {
         } getOrElse
           param.name.toString
 
-        SourceColumn(tableName, columnName)(columnTypeToTypeTag(param.typeSignature.typeArgs.head))
+        val columnTypeTag = typeToTypeTag(param.typeSignature.typeArgs.head, tableDefClassLoaderMirror)
+
+        SourceColumn(tableName, columnName)(columnTypeTag)
       }
 
-      val tableDefClassLoaderMirror = runtimeMirror(this.getClass.getClassLoader)
       val tableDefInstanceMirror = tableDefClassLoaderMirror.reflect(this)
       val columnsClassMirror = tableDefInstanceMirror.reflectClass(typ.typeSymbol.asClass)
       columnsClassMirror.reflectConstructor(ctor).apply(columns: _*).asInstanceOf[Columns]
     }
 
     private def tableName = name
+
+    // Based on: http://stackoverflow.com/questions/27887386/get-a-typetag-from-a-type
+    private def typeToTypeTag(
+      tpe: ReflectType,
+      mirror: Mirror[reflect.runtime.universe.type]
+    ): TypeTag[_ <: Column.Type] =
+      TypeTag(mirror, new TypeCreator {
+        def apply[U <: Universe with Singleton](m: Mirror[U]) =
+          if (m eq mirror) tpe.asInstanceOf[U # Type]
+          else sys.error(s"Type tag defined in $mirror cannot be migrated to other mirrors.")
+      })
   }
 
   object TableDef {
     object Annotations {
       class Named(val columnName: String) extends StaticAnnotation
     }
-
-    // TODO: Is there a better way to do this? We may forget to add an entry here for newly added column types.
-    protected[sqlpt] def columnTypeToTypeTag(t: reflect.runtime.universe.Type): TypeTag[_ <: Column.Type] =
-      Seq(
-        typeOf[Num]            -> typeTag[Num],
-        typeOf[Nullable[Num]]  -> typeTag[Nullable[Num]],
-        typeOf[Str]            -> typeTag[Str],
-        typeOf[Nullable[Str]]  -> typeTag[Nullable[Str]],
-        typeOf[Bool]           -> typeTag[Bool],
-        typeOf[Nullable[Bool]] -> typeTag[Nullable[Bool]]
-      ).collect {
-        case (typ, typTag) if t <:< typ => typTag
-      }.headOption.getOrElse(
-        sys.error(s"Could not create a TypeTag from type $t. This is a bug if $t is a column type.")
-      )
   }
 
   trait PartitioningDef {
