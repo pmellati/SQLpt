@@ -22,11 +22,11 @@ package object api extends column.ColumnImplicits with stmt.Insertion.Implicits 
   def withTempTable[Cols <: Product, R]
   (selection: Selection[Cols])
   (action: (=> Table[Cols, expr.Table.Partitioning.Unpartitioned]) => Statements) =
-    Util.withTempTable[Cols, R](selection)(action)
+    util.Misc.withTempTable[Cols, R](selection)(action)
 
-  type TableDef        = Util.TableDef
-  type PartitioningDef = Util.PartitioningDef
-  type NoPartitioning  = Util.NoPartitioning
+  type TableDef        = util.TableDef
+  type PartitioningDef = util.PartitioningDef
+  type NoPartitioning  = util.NoPartitioning
 
   type Column[+T <: column.Column.Type] = column.Column[T]
   val  Column                           = column.Column
