@@ -26,7 +26,7 @@ class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation
     override def name = "db.games"
 
     case class Columns(
-      @Named("overriden_name")
+      @ColumnName("overriden_name")
       name:       Column[Str],
       score:      Column[Nullable[Num]],
       isReleased: Column[Bool]

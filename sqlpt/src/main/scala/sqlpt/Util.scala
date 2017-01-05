@@ -50,7 +50,7 @@ object Util extends Insertion.Implicits {
 
     final def table(implicit ctt: TypeTag[Columns]) = Table(name, instantiateColumnsReflectively, partitioning)
 
-    protected type Named = Annotations.Named
+    protected type ColumnName = Annotations.ColumnName
 
     private def instantiateColumnsReflectively(implicit ctt: TypeTag[Columns]): Columns = {
       val typ = typeOf[Columns]
@@ -69,7 +69,7 @@ object Util extends Insertion.Implicits {
 
       val columns = params.map {param =>
         val columnName = param.annotations.find {
-          _.tree.tpe <:< typeOf[Named]}
+          _.tree.tpe <:< typeOf[ColumnName]}
         .map {
           /** See: [[scala.reflect.api.Annotations]] */
           _.tree.children.tail.head.asInstanceOf[Literal].value.value.toString
@@ -102,7 +102,7 @@ object Util extends Insertion.Implicits {
 
   object TableDef {
     object Annotations {
-      class Named(val columnName: String) extends StaticAnnotation
+      class ColumnName(val columnName: String) extends StaticAnnotation
     }
   }
 
