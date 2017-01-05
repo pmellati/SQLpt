@@ -44,21 +44,20 @@ object Util extends Insertion.Implicits {
     type Partitioning <: Table.Partitioning
 
     def name:         String
-    def partitioning: Partitioning  // TODO: Should become a private def, like 'cols'.
+    def partitioning: Partitioning  // TODO: Should become a private def, like 'instantiateColumnsReflectively'.
 
-    final def table(implicit ctt: TypeTag[Columns]) = Table(name, cols, partitioning)
+    final def table(implicit ctt: TypeTag[Columns]) = Table(name, instantiateColumnsReflectively, partitioning)
 
     protected type Named = TableDefAnnotations.Named
 
-    /** TODO: We may be able to check at compile-time that 'Columns' is a case class. See:
-      *   http://stackoverflow.com/questions/30233178/how-to-check-if-some-t-is-a-case-class-at-compile-time-in-scala
-      */
-    private def cols(implicit ctt: TypeTag[Columns]): Columns = {
+    private def instantiateColumnsReflectively(implicit ctt: TypeTag[Columns]): Columns = {
       import reflect.runtime.universe._
 
       val typ = typeOf[Columns]
 
-      // TODO: Replace with a compile-time check.
+      /** TODO: Replace with a compile-time check.
+        * See: http://stackoverflow.com/questions/30233178/how-to-check-if-some-t-is-a-case-class-at-compile-time-in-scala
+        */
       if (!typ.typeSymbol.isClass || !typ.typeSymbol.asClass.isCaseClass)
         throw new RuntimeException(s"${typ.typeSymbol.fullName} is not a case class.")
 
@@ -79,7 +78,8 @@ object Util extends Insertion.Implicits {
         val columnName = param.annotations.find {
           _.tree.tpe <:< typeOf[Named]}
         .map {
-          _.tree.children.tail.head.toString   /** See: [[scala.reflect.api.Annotations]] */
+          /** See: [[scala.reflect.api.Annotations]] */
+          _.tree.children.tail.head.asInstanceOf[Literal].value.value.toString
         } getOrElse
           param.name.toString
 
