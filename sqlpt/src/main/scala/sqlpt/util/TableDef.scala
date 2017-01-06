@@ -6,6 +6,7 @@ import sqlpt.ast.expressions.Table
 import annotation.StaticAnnotation
 import reflect.runtime.universe.{Type => ReflectType, Mirror => _, _}
 import reflect.api._
+import util.Try
 
 trait TableDef {
   import TableDef._
@@ -49,8 +50,15 @@ trait TableDef {
       SourceColumn(tableName, columnName)(columnTypeTag)
     }
 
-    val tableDefInstanceMirror = tableDefClassLoaderMirror.reflect(this)
-    val columnsClassMirror = tableDefInstanceMirror.reflectClass(typ.typeSymbol.asClass)
+    val columnsClassMirror = Try {
+      // 'Columns' is static, use a runtime mirror.
+      tableDefClassLoaderMirror.reflectClass(typ.typeSymbol.asClass)
+    } getOrElse {
+      // 'Columns' (or its enclosing TableDef) is not static, use an instance mirror.
+      val tableDefInstanceMirror = tableDefClassLoaderMirror.reflect(this)
+      tableDefInstanceMirror.reflectClass(typ.typeSymbol.asClass)
+    }
+
     columnsClassMirror.reflectConstructor(ctor).apply(columns: _*).asInstanceOf[Columns]
   }
 

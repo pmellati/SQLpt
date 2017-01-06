@@ -106,13 +106,13 @@ object Literals {
   case class LiteralBool(b: Boolean) extends Column[Bool]
 
   trait Implicits {
-    def literal[N : Numeric](n: N): LiteralNum =
+    implicit def literal[N : Numeric](n: N): LiteralNum =
       LiteralNum(implicitly[Numeric[N]].toDouble(n))
 
-    def literal(s: String): LiteralStr =
+    implicit def literal(s: String): LiteralStr =
       LiteralStr(s)
 
-    def literal(b: Boolean): LiteralBool =
+    implicit def literal(b: Boolean): LiteralBool =
       LiteralBool(b)
   }
 }

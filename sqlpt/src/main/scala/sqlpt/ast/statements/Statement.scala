@@ -8,7 +8,7 @@ sealed trait Statement
 case class StringStatement(sql: String) extends Statement
 
 case class Insertion
-(tableName: String, mode: Insertion.Mode, partition: Option[Product], selection: Selection[_ <: Product])
+  (tableName: String, mode: Insertion.Mode, partition: Option[Product], selection: Selection[_ <: Product])
   extends Statement {
   def overwrite(ifNotExists: Boolean = false) =
     copy(mode = Insertion.Mode.OverwriteTable(ifNotExists))
