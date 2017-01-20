@@ -1,12 +1,9 @@
 package sqlpt.util
 
-import sqlpt.column._, Column._
+import sqlpt.column._, Column._, Type._
 import sqlpt.ast.expressions.Table
-
-import annotation.StaticAnnotation
-import reflect.runtime.universe.{Type => ReflectType, Mirror => _, _}
-import reflect.api._
-import util.Try
+import shapeless._, labelled.{FieldType, field}
+import annotation.implicitNotFound
 
 trait TableDef {
   import TableDef._
@@ -15,69 +12,75 @@ trait TableDef {
   type Partitioning <: Table.Partitioning
 
   def name:         String
-  def partitioning: Partitioning  // TODO: Should become a private def, like 'instantiateColumnsReflectively'.
+  def partitioning: Partitioning
 
-  final def table(implicit ctt: TypeTag[Columns]) = Table(name, instantiateColumnsReflectively, partitioning)
+  def cols(implicit colsCr: ColumnsProductInstantiator[Columns]): Columns =
+    colsCr.instantiate(name)
 
-  protected type ColumnName = Annotations.ColumnName
-
-  private def instantiateColumnsReflectively(implicit ctt: TypeTag[Columns]): Columns = {
-    val typ = typeOf[Columns]
-
-    val tableDefClassLoaderMirror = runtimeMirror(this.getClass.getClassLoader)
-
-    /** TODO: Replace with a compile-time check.
-      * See: http://stackoverflow.com/questions/30233178/how-to-check-if-some-t-is-a-case-class-at-compile-time-in-scala
-      */
-    if (!typ.typeSymbol.isClass || !typ.typeSymbol.asClass.isCaseClass)
-      throw new RuntimeException(s"${typ.typeSymbol.fullName} is not a case class.")
-
-    val ctor = typ.typeSymbol.asClass.typeSignature.members.filter(_.isConstructor).head.asMethod
-
-    val params = ctor.paramLists.head
-
-    val columns = params.map {param =>
-      val columnName = param.annotations.find {
-        _.tree.tpe <:< typeOf[ColumnName]}
-      .map {
-        /** See: [[scala.reflect.api.Annotations]] */
-        _.tree.children.tail.head.asInstanceOf[Literal].value.value.toString
-      } getOrElse
-        param.name.toString
-
-      val columnTypeTag = typeToTypeTag(param.typeSignature.typeArgs.head, tableDefClassLoaderMirror)
-
-      SourceColumn(tableName, columnName)(columnTypeTag)
-    }
-
-    val columnsClassMirror = Try {
-      // 'Columns' is static, use a runtime mirror.
-      tableDefClassLoaderMirror.reflectClass(typ.typeSymbol.asClass)
-    } getOrElse {
-      // 'Columns' (or its enclosing TableDef) is not static, use an instance mirror.
-      val tableDefInstanceMirror = tableDefClassLoaderMirror.reflect(this)
-      tableDefInstanceMirror.reflectClass(typ.typeSymbol.asClass)
-    }
-
-    columnsClassMirror.reflectConstructor(ctor).apply(columns: _*).asInstanceOf[Columns]
-  }
-
-  private def tableName = name
-
-  // Based on: http://stackoverflow.com/questions/27887386/get-a-typetag-from-a-type
-  private def typeToTypeTag(
-    tpe: ReflectType,
-    mirror: Mirror[reflect.runtime.universe.type]
-  ): TypeTag[_ <: Column.Type] =
-    TypeTag(mirror, new TypeCreator {
-      def apply[U <: Universe with Singleton](m: Mirror[U]) =
-        if (m eq mirror) tpe.asInstanceOf[U # Type]
-        else sys.error(s"Type tag defined in $mirror cannot be migrated to other mirrors.")
-    })
+  def table(implicit colsCr: ColumnsProductInstantiator[Columns]) =
+    Table(name, cols, partitioning)
 }
 
 object TableDef {
-  object Annotations {
-    class ColumnName(val columnName: String) extends StaticAnnotation
+  @implicitNotFound(msg = "Couldn't figure out how to instantiate a ${T}.\nIs it a valid product of columns?")
+  trait ColumnsProductInstantiator[T] {
+    def instantiate(tableName: String): T
+  }
+
+  object ColumnsProductInstantiator {
+    def instantiator[A](inst: String => A) = new ColumnsProductInstantiator[A] {
+      def instantiate(tableName: String): A = inst(tableName)
+    }
+
+    trait Implicits {
+      implicit val hNillColsProdInstantiator: ColumnsProductInstantiator[HNil] = instantiator {_ => HNil}
+
+      implicit def hListColsProdInstantiator[K <: Symbol, H, T <: HList](
+        implicit
+        fieldSymbol: Witness.Aux[K],
+        headColInst: Lazy[SingleColumnInstantiator[H]],
+        tailInst:    ColumnsProductInstantiator[T]
+      ): ColumnsProductInstantiator[FieldType[K, H] :: T] = instantiator {tableName =>
+        val fieldName = fieldSymbol.value.name
+
+        val column = headColInst.value.instantiate(tableName, fieldName)
+
+        field[K](column) :: tailInst.instantiate(tableName)
+      }
+
+      implicit def genericColsProdInstantiator[A, H <: HList](
+        implicit
+        generic:   LabelledGeneric.Aux[A, H],
+        hlistInst: Lazy[ColumnsProductInstantiator[H]]
+      ): ColumnsProductInstantiator[A] = instantiator {tableName =>
+        generic from hlistInst.value.instantiate(tableName)
+      }
+    }
+  }
+
+  trait SingleColumnInstantiator[T] {
+    def instantiate(tableName: String, columnName: String): T
+  }
+
+  object SingleColumnInstantiator {
+    def instantiator[A](inst: (String, String) => A) = new SingleColumnInstantiator[A] {
+      def instantiate(tableName: String, columnName: String): A = inst(tableName, columnName)
+    }
+
+    trait Implicits {
+      // TODO: Can we have a single def instead of all these?
+
+      implicit val strColInst = instantiator[Column[Str]] {case (tableName, colName) =>
+        SourceColumn(tableName, colName)
+      }
+
+      implicit val boolColInst = instantiator[Column[Bool]] {case (tableName, colName) =>
+        SourceColumn(tableName, colName)
+      }
+
+      implicit val nullableNumColInst = instantiator[Column[Nullable[Num]]] {case (tableName, colName) =>
+        SourceColumn(tableName, colName)
+      }
+    }
   }
 }
