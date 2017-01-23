@@ -11,47 +11,47 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
   "SelectionTranslator" should {
     "successfully translate a 'SimpleSelection' without joins" in {
       Cars.table.select(_.make) must translateTo("""
-        |SELECT A.manufacturer_id
+        |SELECT A.make
         |FROM   db.cars A
       """.stripMargin)
 
       Cars.table.select(car => (
-        car.id,
+        car.carId,
         car.model,
         car.price)
       ) must translateTo("""
-        |SELECT A.car_id, A.model, A.price
+        |SELECT A.carId, A.model, A.price
         |FROM   db.cars A
       """.stripMargin)
 
       Cars.table.select(car => (
         car.model,
-        car.id,
+        car.carId,
         car.model,
         car.model,
         car.price)
       ) must translateTo("""
-        |SELECT A.car_id, A.model, A.price
+        |SELECT A.carId, A.model, A.price
         |FROM   db.cars A
       """.stripMargin)
 
       Cars.table.selectDistinct(car => (
-        car.id,
+        car.carId,
         car.model,
         car.price)
       ) must translateTo("""
-        |SELECT DISTINCT A.car_id, A.model, A.price
+        |SELECT DISTINCT A.carId, A.model, A.price
         |FROM   db.cars A
       """.stripMargin)
 
       Cars.table
         .where(_.price >= 20000)
         .select(car => (
-          car.id,
+          car.carId,
           car.model,
           car.price)
       ) must translateTo("""
-        |SELECT A.car_id, A.model, A.price
+        |SELECT A.carId, A.model, A.price
         |FROM   db.cars A
         |WHERE  A.price >= 20000.0
       """.stripMargin)
@@ -62,7 +62,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
             car.price >= 20000   and
             car.make === "Fiat")
           .select(car => (
-            car.id,
+            car.carId,
             car.model,
             car.price)
           ),
@@ -70,15 +70,15 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           .where(_.price >= 20000)
           .where(_.make === "Fiat")
           .select(car => (
-            car.id,
+            car.carId,
             car.model,
             car.price)
           )
       ) must contain(
         translateTo("""
-          |SELECT A.car_id, A.model, A.price
+          |SELECT A.carId, A.model, A.price
           |FROM   db.cars A
-          |WHERE  A.price >= 20000.0 AND A.manufacturer_id = "Fiat"
+          |WHERE  A.price >= 20000.0 AND A.make = "Fiat"
         """.stripMargin)
       ).forall
 
@@ -91,7 +91,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
         )
       ) must contain(
         translateTo("""
-          |SELECT A.car_id, A.manufacturer_id, A.model, A.price, A.website
+          |SELECT A.carId, A.make, A.model, A.price, A.website
           |FROM   db.cars A
         """.stripMargin)
       ).forall
@@ -127,9 +127,9 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           c2.make,
           c2.price
         )} must translateTo("""
-          |SELECT A.car_id, A.manufacturer_id, A.model, A.price, A.website, B.manufacturer_id, B.price
+          |SELECT A.carId, A.make, A.model, A.price, A.website, B.make, B.price
           |FROM  db.cars A
-          |JOIN  db.cars B ON A.model = B.manufacturer_id
+          |JOIN  db.cars B ON A.model = B.make
           |WHERE B.price >= 1000.0
         """.stripMargin)
 
@@ -137,27 +137,27 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
         .leftJoin(Cars.table) {_.model === _.make}
         .where  {case (c1, _) => c1.price >= 1000}
         .select {case (c1, c2) => (
-          c1.id,
+          c1.carId,
           c2(_.make),
           c2(_.price)
         )} must translateTo("""
-          |SELECT A.car_id, B.manufacturer_id, B.price
+          |SELECT A.carId, B.make, B.price
           |FROM   db.cars A
-          |LEFT JOIN  db.cars B ON A.model = B.manufacturer_id
+          |LEFT JOIN  db.cars B ON A.model = B.make
           |WHERE  A.price >= 1000.0
         """.stripMargin)
 
       Cars.table
-        .leftJoin(CarMakers.table) {_.model === _.id}
+        .leftJoin(CarMakers.table) {_.model === _.manufacturerId}
         .where  {case (car, _) => car.price >= 1000}
         .select {case (car, manufacturer) => (
-          car.id,
-          manufacturer(_.id),
+          car.carId,
+          manufacturer(_.manufacturerId),
           manufacturer(_.numEmployees)
         )} must translateTo("""
-          |SELECT     A.car_id, B.manufacturer_id, B.num_employees
+          |SELECT     A.carId, B.manufacturerId, B.numEmployees
           |FROM       db.cars A
-          |LEFT JOIN  db.car_makers B ON A.model = B.manufacturer_id
+          |LEFT JOIN  db.car_makers B ON A.model = B.manufacturerId
           |WHERE      A.price >= 1000.0
         """.stripMargin)
     }
@@ -192,10 +192,10 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
         )}.having {case (_, _, count) =>
           count === 14300
         } must translateTo("""
-          |SELECT   A.manufacturer_id, COUNT(A.model), MAX(A.price)
+          |SELECT   A.make, COUNT(A.model), MAX(A.price)
           |FROM     db.cars A
           |WHERE    A.price >= 1000.0
-          |GROUP BY A.manufacturer_id
+          |GROUP BY A.make
           |HAVING   COUNT(A.model) = 14300.0
         """.stripMargin)
     }

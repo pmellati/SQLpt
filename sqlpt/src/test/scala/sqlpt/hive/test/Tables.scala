@@ -11,7 +11,7 @@ object Tables {
     override def name = "db.cars"
 
     case class Columns(
-      id:      Column[Str],
+      carId:   Column[Str],
       model:   Column[Str],
       make:    Column[Str],
       price:   Column[Num],
@@ -23,9 +23,9 @@ object Tables {
     override def name = "db.car_makers"
 
     case class Columns(
-      id:           Column[Str],
-      numEmployees: Column[Num],
-      hq:           Column[Str]
+      manufacturerId: Column[Str],
+      numEmployees:   Column[Num],
+      hq:             Column[Str]
     )
   }
 
