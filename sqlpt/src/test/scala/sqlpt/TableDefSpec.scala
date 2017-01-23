@@ -1,7 +1,7 @@
 package sqlpt
 
 import org.specs2.mutable.Specification
-import org.specs2.matcher.{Expectable, MatchersCreation, MatchResult, Matcher, NoTypedEqual}
+import org.specs2.matcher.{Expectable, MatchResult, Matcher, MatchersCreation, NoTypedEqual}
 import sqlpt.api._
 import sqlpt.column.Column.SourceColumn
 
@@ -16,7 +16,7 @@ class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation
 
       generatedColumns must beAnInstanceOf[Games.Columns]
 
-      generatedColumns.name       must beColumn(tableName = "db.games", columnName = "overriden_name")
+      generatedColumns.name       must beColumn(tableName = "db.games", columnName = "name")
       generatedColumns.score      must beColumn(tableName = "db.games", columnName = "score")
       generatedColumns.isReleased must beColumn(tableName = "db.games", columnName = "isReleased")
     }
@@ -26,7 +26,6 @@ class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation
     override def name = "db.games"
 
     case class Columns(
-      @ColumnName("overriden_name")
       name:       Column[Str],
       score:      Column[Nullable[Num]],
       isReleased: Column[Bool]

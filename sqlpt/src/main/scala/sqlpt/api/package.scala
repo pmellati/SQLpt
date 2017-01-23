@@ -3,7 +3,7 @@ package sqlpt
 import ast.{expressions => expr}
 import ast.{statements  => stmt}
 
-package object api extends column.ColumnImplicits with stmt.Insertion.Implicits {
+package object api extends column.ColumnImplicits with stmt.Insertion.Implicits with util.TableDef.Implicits {
   type Selection[Cols <: Product] = expr.Selection[Cols]
 
   type Table[Cols <: Product, Partitioning <: expr.Table.Partitioning] = expr.Table[Cols, Partitioning]

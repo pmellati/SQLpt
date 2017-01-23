@@ -66,7 +66,6 @@ class ColumnsTypeCheckingSpec extends mutable.Specification with NoTypedEqual {
     override val name = "cars"
 
     case class Columns(
-      @ColumnName("car_id")
       id:    Column[Str],
       price: Column[Num]
     )
