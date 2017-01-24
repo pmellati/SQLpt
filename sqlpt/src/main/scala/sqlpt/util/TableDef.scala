@@ -23,12 +23,7 @@ trait TableDef {
 }
 
 object TableDef {
-  trait Implicits extends ColumnsProductInstantiator.Implicits with SingleColumnInstantiator.Implicits
-
-  @implicitNotFound(msg =
-    "\nCouldn't figure out how to instantiate a ${T}." +
-    "\nIs it a valid product of columns?" +
-    "\nAlso, ensure that the required implicits are imported (import 'sqlpt.api._').")
+  @implicitNotFound(msg = "${T} seems to be an invalid product of columns.")
   trait ColumnsProductInstantiator[T] {
     def columns(tableName: String): T
   }
@@ -38,29 +33,27 @@ object TableDef {
       def columns(tableName: String): A = inst(tableName)
     }
 
-    trait Implicits {
-      implicit val hNillColsProdInstantiator: ColumnsProductInstantiator[HNil] = instantiator {_ => HNil}
+    implicit val hNillColsProdInstantiator: ColumnsProductInstantiator[HNil] = instantiator {_ => HNil}
 
-      implicit def hListColsProdInstantiator[K <: Symbol, H, T <: HList](
-        implicit
-        fieldSymbol: Witness.Aux[K],
-        headColInst: Lazy[SingleColumnInstantiator[H]],
-        tailInst:    ColumnsProductInstantiator[T]
-      ): ColumnsProductInstantiator[FieldType[K, H] :: T] = instantiator {tableName =>
-        val fieldName = fieldSymbol.value.name
+    implicit def hListColsProdInstantiator[K <: Symbol, H, T <: HList](
+      implicit
+      fieldSymbol: Witness.Aux[K],
+      headColInst: Lazy[SingleColumnInstantiator[H]],
+      tailInst:    ColumnsProductInstantiator[T]
+    ): ColumnsProductInstantiator[FieldType[K, H] :: T] = instantiator {tableName =>
+      val fieldName = fieldSymbol.value.name
 
-        val column = headColInst.value.column(tableName, fieldName)
+      val column = headColInst.value.column(tableName, fieldName)
 
-        field[K](column) :: tailInst.columns(tableName)
-      }
+      field[K](column) :: tailInst.columns(tableName)
+    }
 
-      implicit def genericColsProdInstantiator[A, H <: HList](
-        implicit
-        generic:   LabelledGeneric.Aux[A, H],
-        hlistInst: Lazy[ColumnsProductInstantiator[H]]
-      ): ColumnsProductInstantiator[A] = instantiator {tableName =>
-        generic from hlistInst.value.columns(tableName)
-      }
+    implicit def genericColsProdInstantiator[A, H <: HList](
+      implicit
+      generic:   LabelledGeneric.Aux[A, H],
+      hlistInst: Lazy[ColumnsProductInstantiator[H]]
+    ): ColumnsProductInstantiator[A] = instantiator {tableName =>
+      generic from hlistInst.value.columns(tableName)
     }
   }
 
@@ -69,18 +62,14 @@ object TableDef {
   }
 
   object SingleColumnInstantiator {
-    trait Implicits {
-      implicit def singleColumnInstantiator[T <: Type : TypeTag]: SingleColumnInstantiator[Column[T]] =
-        new SingleColumnInstantiator[Column[T]] {
-          def column(tableName: String, columnName: String): Column[T] =
-            SourceColumn(tableName, columnName)
-        }
-    }
+    implicit def singleColumnInstantiator[T <: Type : TypeTag]: SingleColumnInstantiator[Column[T]] =
+      new SingleColumnInstantiator[Column[T]] {
+        def column(tableName: String, columnName: String): Column[T] =
+          SourceColumn(tableName, columnName)
+      }
   }
 
-  @implicitNotFound(msg =
-    "\n${P} seems to be an invalid 'Table.Partitioning'." +
-    "\nHave you imported the required implicits? (import 'sqlpt.api._')")
+  @implicitNotFound(msg = "${P} seems to be an invalid 'Table.Partitioning'.")
   trait PartitioningInstantiator[P <: Table.Partitioning] {
     def partitioning(tableName: String): P
   }

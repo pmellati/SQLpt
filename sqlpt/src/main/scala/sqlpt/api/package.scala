@@ -3,7 +3,7 @@ package sqlpt
 import ast.{expressions => expr}
 import ast.{statements  => stmt}
 
-package object api extends column.ColumnImplicits with stmt.Insertion.Implicits with util.TableDef.Implicits {
+package object api extends column.ColumnImplicits with stmt.Insertion.Implicits {
   type Selection[Cols <: Product] = expr.Selection[Cols]
 
   type Table[Cols <: Product, Partitioning <: expr.Table.Partitioning] = expr.Table[Cols, Partitioning]
@@ -55,10 +55,6 @@ package object api extends column.ColumnImplicits with stmt.Insertion.Implicits 
 
   implicit def statementToStatements(statement: Statement): Statements =
     stmt.Statements.statementToStatements(statement)
-
-//  This compiles but trips intellij, even if it is not defined as implicit!
-//  implicit def col2PartionColVal[T <: Column.Type : TypeTag](col: Column[T]): column.PartitionCol[T] =
-//    column.PartitionCol.Val(col)
 
   implicit def typeCheck[T]: Columns[T] =
     macro ColumnsTypeChecking.typeCheck_impl[T]
