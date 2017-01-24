@@ -1,7 +1,6 @@
 package sqlpt.examples
 
 import sqlpt.api._
-import sqlpt.column.PartitionCol
 
 object partitioned_and_unpartitioned_insert {
   object Employees extends TableDef with PartitioningByDate {
@@ -25,19 +24,9 @@ object partitioned_and_unpartitioned_insert {
 
   trait PartitioningByDate extends PartitioningDef {this: TableDef =>
     case class Partition(
-      year:  PartitionKey[Num],
-      month: PartitionKey[Num],
-      day:   PartitionKey[Num]
-    )
-
-    override type Partitioning = Table.Partitioning.Partitioned[Partition]
-
-    override def partitioning = Table.Partitioning.Partitioned(
-      Partition(
-        year  = "year",
-        month = "month",
-        day   = "day"
-      )
+      year:  Column[Num],
+      month: Column[Num],
+      day:   Column[Num]
     )
   }
 
@@ -50,9 +39,9 @@ object partitioned_and_unpartitioned_insert {
       )
     }
   ).intoPartition(employee => Employees.Partition(
-    year  = PartitionCol.Val(employee.age),
-    month = ???,
-    day   = ???
+    year  = 2020,
+    month = 11,
+    day   = 22
   ))
 
   Games.table.insert(

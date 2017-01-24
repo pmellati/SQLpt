@@ -33,12 +33,6 @@ trait ColumnTypeConversions {
   }
 }
 
-sealed trait PartitionCol[T <: Type]
-object PartitionCol {
-  case class Key[T <: Type : TypeTag](name: String) extends PartitionCol[T]
-  case class Val[T <: Type : TypeTag](value: Column[T]) extends PartitionCol[T]
-}
-
 object Arithmetic {
   case class Multiplication(left: Column[Num], right: Column[Num]) extends Column[Num]
   case class Equals[T <: Type](left: Column[T], right: Column[T]) extends Column[Bool]
