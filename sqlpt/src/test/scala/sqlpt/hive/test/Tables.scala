@@ -7,7 +7,7 @@ import scala.reflect.runtime.universe._
 import sqlpt.ast.expressions.Table.Partitioning
 
 object Tables {
-  object Cars extends TableDef with NoPartitioning {
+  object Cars extends MyOrgTable with NoPartitioning {
     override def name = "db.cars"
 
     case class Columns(
@@ -19,7 +19,7 @@ object Tables {
     )
   }
 
-  object CarMakers extends TableDef with NoPartitioning {
+  object CarMakers extends MyOrgTable with NoPartitioning {
     override def name = "db.car_makers"
 
     case class Columns(
@@ -27,6 +27,12 @@ object Tables {
       numEmployees:   Column[Num],
       hq:             Column[Str]
     )
+  }
+
+  trait MyOrgTable extends TableDef {
+    override def fieldNameToColumnName = {fieldName: String =>
+      "[A-Z]?[^A-Z]*".r.findAllIn(fieldName).toList.filterNot(_.isEmpty).map(_.toLowerCase).mkString("_")
+    }
   }
 
   trait TablesEnv {

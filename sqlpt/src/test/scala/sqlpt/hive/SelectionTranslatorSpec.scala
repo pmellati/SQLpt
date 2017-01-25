@@ -20,7 +20,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
         car.model,
         car.price)
       ) must translateTo("""
-        |SELECT A.carId, A.model, A.price
+        |SELECT A.car_id, A.model, A.price
         |FROM   db.cars A
       """.stripMargin)
 
@@ -31,7 +31,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
         car.model,
         car.price)
       ) must translateTo("""
-        |SELECT A.carId, A.model, A.price
+        |SELECT A.car_id, A.model, A.price
         |FROM   db.cars A
       """.stripMargin)
 
@@ -40,7 +40,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
         car.model,
         car.price)
       ) must translateTo("""
-        |SELECT DISTINCT A.carId, A.model, A.price
+        |SELECT DISTINCT A.car_id, A.model, A.price
         |FROM   db.cars A
       """.stripMargin)
 
@@ -51,7 +51,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           car.model,
           car.price)
       ) must translateTo("""
-        |SELECT A.carId, A.model, A.price
+        |SELECT A.car_id, A.model, A.price
         |FROM   db.cars A
         |WHERE  A.price >= 20000.0
       """.stripMargin)
@@ -76,7 +76,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           )
       ) must contain(
         translateTo("""
-          |SELECT A.carId, A.model, A.price
+          |SELECT A.car_id, A.model, A.price
           |FROM   db.cars A
           |WHERE  A.price >= 20000.0 AND A.make = "Fiat"
         """.stripMargin)
@@ -91,7 +91,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
         )
       ) must contain(
         translateTo("""
-          |SELECT A.carId, A.make, A.model, A.price, A.website
+          |SELECT A.car_id, A.make, A.model, A.price, A.website
           |FROM   db.cars A
         """.stripMargin)
       ).forall
@@ -127,7 +127,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           c2.make,
           c2.price
         )} must translateTo("""
-          |SELECT A.carId, A.make, A.model, A.price, A.website, B.make, B.price
+          |SELECT A.car_id, A.make, A.model, A.price, A.website, B.make, B.price
           |FROM  db.cars A
           |JOIN  db.cars B ON A.model = B.make
           |WHERE B.price >= 1000.0
@@ -141,7 +141,7 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           c2(_.make),
           c2(_.price)
         )} must translateTo("""
-          |SELECT A.carId, B.make, B.price
+          |SELECT A.car_id, B.make, B.price
           |FROM   db.cars A
           |LEFT JOIN  db.cars B ON A.model = B.make
           |WHERE  A.price >= 1000.0
@@ -155,9 +155,9 @@ class SelectionTranslatorSpec extends Specification with NoTypedEqual with Table
           manufacturer(_.manufacturerId),
           manufacturer(_.numEmployees)
         )} must translateTo("""
-          |SELECT     A.carId, B.manufacturerId, B.numEmployees
+          |SELECT     A.car_id, B.manufacturer_id, B.num_employees
           |FROM       db.cars A
-          |LEFT JOIN  db.car_makers B ON A.model = B.manufacturerId
+          |LEFT JOIN  db.car_makers B ON A.model = B.manufacturer_id
           |WHERE      A.price >= 1000.0
         """.stripMargin)
     }
