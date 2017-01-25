@@ -20,6 +20,38 @@ class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation
       generatedColumns.score      must beColumn(tableName = "db.games", columnName = "score")
       generatedColumns.isReleased must beColumn(tableName = "db.games", columnName = "isReleased")
     }
+
+    "properly instantiate its 'Partition' case class, if partitioned" in pending
+
+    "utilise its fieldNameToColumnName translation" in {
+      trait Films extends TableDef with PartitioningDef {
+        override def name = "db.films"
+
+        case class Columns(
+          id:   Column[Str]
+        )
+
+        case class Partition(
+          year: Column[Num]
+        )
+      }
+
+      object FilmsWithoutRenaming extends Films
+
+      FilmsWithoutRenaming.table.cols.id                must beColumn(tableName = "db.films", columnName = "id")
+      FilmsWithoutRenaming.table.partitioning.cols.year must beColumn(tableName = "db.films", columnName = "year")
+
+      object FilmsWithRenaming extends Films {
+        override def fieldNameToColumnName = {
+          case "id"   => "film_id"
+          case "year" => "YEAR"
+          case other  => other
+        }
+      }
+
+      FilmsWithRenaming.table.cols.id                must beColumn(tableName = "db.films", columnName = "film_id")
+      FilmsWithRenaming.table.partitioning.cols.year must beColumn(tableName = "db.films", columnName = "YEAR")
+    }
   }
 
   object Games extends TableDef with NoPartitioning {

@@ -11,6 +11,8 @@ trait TableDef {
 
   def name: String
 
+  def fieldNameToColumnName: String => String = identity
+
   type Columns      <: Product
   type Partitioning <: Table.Partitioning
 
