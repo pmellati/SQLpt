@@ -11,7 +11,7 @@ trait TableDef {
 
   def name: String
 
-  def fieldNameToColumnName: String => String = identity
+  def fieldNameToColumnName: FieldNameToColName = identity
 
   type Columns      <: Product
   type Partitioning <: Table.Partitioning
@@ -21,41 +21,46 @@ trait TableDef {
     columnsInst:      ColumnsProductInstantiator[Columns],
     partitioningInst: PartitioningInstantiator[Partitioning]
   ): Table[Columns, Partitioning] =
-    Table(name, columnsInst.columns(name), partitioningInst.partitioning(name))
+    Table(
+      name,
+      columnsInst.columns(name, fieldNameToColumnName),
+      partitioningInst.partitioning(name, fieldNameToColumnName))
 }
 
 object TableDef {
+  type FieldNameToColName = String => String
+
   @implicitNotFound(msg = "${T} seems to be an invalid product of columns.")
   trait ColumnsProductInstantiator[T] {
-    def columns(tableName: String): T
+    def columns(tableName: String, fieldNameToColumnName: FieldNameToColName): T
   }
 
   object ColumnsProductInstantiator {
-    def instantiator[A](inst: String => A) = new ColumnsProductInstantiator[A] {
-      def columns(tableName: String): A = inst(tableName)
+    def instantiator[A](inst: (String, FieldNameToColName) => A) = new ColumnsProductInstantiator[A] {
+      def columns(tableName: String, f2c: FieldNameToColName): A = inst(tableName, f2c)
     }
 
-    implicit val hNillColsProdInstantiator: ColumnsProductInstantiator[HNil] = instantiator {_ => HNil}
+    implicit val hNillColsProdInstantiator: ColumnsProductInstantiator[HNil] = instantiator {(_, _) => HNil}
 
     implicit def hListColsProdInstantiator[K <: Symbol, H, T <: HList](
       implicit
       fieldSymbol: Witness.Aux[K],
       headColInst: Lazy[SingleColumnInstantiator[H]],
       tailInst:    ColumnsProductInstantiator[T]
-    ): ColumnsProductInstantiator[FieldType[K, H] :: T] = instantiator {tableName =>
+    ): ColumnsProductInstantiator[FieldType[K, H] :: T] = instantiator {case (tableName, fieldNameToColumnName) =>
       val fieldName = fieldSymbol.value.name
 
-      val column = headColInst.value.column(tableName, fieldName)
+      val column = headColInst.value.column(tableName, fieldNameToColumnName(fieldName))
 
-      field[K](column) :: tailInst.columns(tableName)
+      field[K](column) :: tailInst.columns(tableName, fieldNameToColumnName)
     }
 
     implicit def genericColsProdInstantiator[A, H <: HList](
       implicit
       generic:   LabelledGeneric.Aux[A, H],
       hlistInst: Lazy[ColumnsProductInstantiator[H]]
-    ): ColumnsProductInstantiator[A] = instantiator {tableName =>
-      generic from hlistInst.value.columns(tableName)
+    ): ColumnsProductInstantiator[A] = instantiator {case (tableName, f2c) =>
+      generic from hlistInst.value.columns(tableName, f2c)
     }
   }
 
@@ -73,18 +78,18 @@ object TableDef {
 
   @implicitNotFound(msg = "${P} seems to be an invalid 'Table.Partitioning'.")
   trait PartitioningInstantiator[P <: Table.Partitioning] {
-    def partitioning(tableName: String): P
+    def partitioning(tableName: String, fieldNameToColumnName: FieldNameToColName): P
   }
 
   object PartitioningInstantiator {
     implicit object UnpartitionedPartitioningInstantiator extends PartitioningInstantiator[Unpartitioned] {
-      override def partitioning(tableName: String) = Unpartitioned
+      override def partitioning(tableName: String, f2c: FieldNameToColName) = Unpartitioned
     }
 
     implicit def partitionedPartitioningInstantiator[P <: Product : ColumnsProductInstantiator]:
     PartitioningInstantiator[Partitioned[P]] = new PartitioningInstantiator[Partitioned[P]] {
-      override def partitioning(tableName: String) =
-        Partitioned(implicitly[ColumnsProductInstantiator[P]].columns(tableName))
+      override def partitioning(tableName: String, f2c: FieldNameToColName) =
+        Partitioned(implicitly[ColumnsProductInstantiator[P]].columns(tableName, f2c))
     }
   }
 }
