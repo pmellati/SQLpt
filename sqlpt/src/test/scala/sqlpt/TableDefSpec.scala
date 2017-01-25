@@ -1,7 +1,7 @@
 package sqlpt
 
 import org.specs2.mutable.Specification
-import org.specs2.matcher.{Expectable, MatchResult, Matcher, MatchersCreation, NoTypedEqual}
+import org.specs2.matcher.{Matcher, MatchersCreation, NoTypedEqual}
 import sqlpt.api._
 import sqlpt.column.Column.SourceColumn
 
@@ -32,7 +32,7 @@ class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation
     )
   }
 
-  private def beColumn[T <: Type : TypeTag](tableName: String, columnName: String) = hackyMatcher[Column[T]] {c =>
+  private def beColumn[T <: Type : TypeTag](tableName: String, columnName: String): Matcher[Column[T]] = {c: Column[T] =>
     c must beAnInstanceOf[SourceColumn[T]]
     val sc = c.asInstanceOf[SourceColumn[T]]
 
@@ -42,12 +42,7 @@ class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation
     sc.columnTypeTag.tpe must beSameReflectTypeAs (typeOf[T])
   }
 
-  def beSameReflectTypeAs(t2: ReflectType): Matcher[ReflectType] = {t1: ReflectType =>
+  private def beSameReflectTypeAs(t2: ReflectType): Matcher[ReflectType] = {t1: ReflectType =>
     (t1 =:= t2, s"Type $t1 wasn't the same as Type $t2.")
-  }
-
-  private def hackyMatcher[T](res: T => MatchResult[Any]): Matcher[T] = new Matcher[T] {
-    override def apply[S <: T](t: Expectable[S]): MatchResult[S] =
-      res(t.value).asInstanceOf[MatchResult[S]]
   }
 }
