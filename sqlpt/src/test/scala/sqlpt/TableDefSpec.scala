@@ -10,6 +10,8 @@ import reflect.runtime.universe.{Type => ReflectType, _}
 class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation {
   "Util.TableDef" should {
     "properly instantiate its 'Columns' case class" in {
+      object Games extends Games with NoPartitioning
+
       val generatedColumns = Games.table.cols
 
       generatedColumns.productArity must_== 3
@@ -21,46 +23,42 @@ class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation
       generatedColumns.isReleased must beColumn(tableName = "db.games", columnName = "isReleased")
     }
 
-    "properly instantiate its 'Partition' case class, if partitioned" in pending
+    "properly instantiate its 'Partition' case class, if partitioned" in {
+      object Games extends Games with PartitionByYear
+
+      Games.table.partitioning.cols.year must beColumn(tableName = "db.games", columnName = "year")
+    }
 
     "utilise its fieldNameToColumnName translation" in {
-      trait Films extends TableDef with PartitioningDef {
-        override def name = "db.films"
+      trait GamesWithPartition extends Games with PartitionByYear
 
-        case class Columns(
-          id:   Column[Str]
-        )
+      object GamesWithoutRenaming extends GamesWithPartition
 
-        case class Partition(
-          year: Column[Num]
-        )
+      GamesWithoutRenaming.table.cols.name              must beColumn(tableName = "db.games", columnName = "name")
+      GamesWithoutRenaming.table.partitioning.cols.year must beColumn(tableName = "db.games", columnName = "year")
+
+      object GamesWithRenaming extends GamesWithPartition {
+        override def fieldNameToColumnName = _.toUpperCase
       }
 
-      object FilmsWithoutRenaming extends Films
-
-      FilmsWithoutRenaming.table.cols.id                must beColumn(tableName = "db.films", columnName = "id")
-      FilmsWithoutRenaming.table.partitioning.cols.year must beColumn(tableName = "db.films", columnName = "year")
-
-      object FilmsWithRenaming extends Films {
-        override def fieldNameToColumnName = {
-          case "id"   => "film_id"
-          case "year" => "YEAR"
-          case other  => other
-        }
-      }
-
-      FilmsWithRenaming.table.cols.id                must beColumn(tableName = "db.films", columnName = "film_id")
-      FilmsWithRenaming.table.partitioning.cols.year must beColumn(tableName = "db.films", columnName = "YEAR")
+      GamesWithRenaming.table.cols.name              must beColumn(tableName = "db.games", columnName = "NAME")
+      GamesWithRenaming.table.partitioning.cols.year must beColumn(tableName = "db.games", columnName = "YEAR")
     }
   }
 
-  object Games extends TableDef with NoPartitioning {
+  trait Games extends TableDef {
     override def name = "db.games"
 
     case class Columns(
       name:       Column[Str],
       score:      Column[Nullable[Num]],
       isReleased: Column[Bool]
+    )
+  }
+
+  trait PartitionByYear extends PartitioningDef {this: TableDef =>
+    case class Partition(
+      year: Column[Num]
     )
   }
 
