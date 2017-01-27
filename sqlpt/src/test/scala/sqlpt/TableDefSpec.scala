@@ -10,39 +10,32 @@ import reflect.runtime.universe.{Type => ReflectType, _}
 class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation {
   "Util.TableDef" should {
     "properly instantiate its 'Columns' case class" in {
-      object Games extends Games with NoPartitioning
+      object Games extends Games
 
       val generatedColumns = Games.table.cols
 
-      generatedColumns.productArity must_== 3
+      generatedColumns.productArity must_== 4
 
       generatedColumns must beAnInstanceOf[Games.Columns]
 
       generatedColumns.name       must beColumn(tableName = "db.games", columnName = "name")
       generatedColumns.score      must beColumn(tableName = "db.games", columnName = "score")
       generatedColumns.isReleased must beColumn(tableName = "db.games", columnName = "isReleased")
-    }
-
-    "properly instantiate its 'Partition' case class, if partitioned" in {
-      object Games extends Games with PartitionByYear
-
-      Games.table.partitioning.cols.year must beColumn(tableName = "db.games", columnName = "year")
+      generatedColumns.year       must beColumn(tableName = "db.games", columnName = "year", isPartitioning = true)
     }
 
     "utilise its fieldNameToColumnName translation" in {
-      trait GamesWithPartition extends Games with PartitionByYear
+      object GamesWithoutRenaming extends Games
 
-      object GamesWithoutRenaming extends GamesWithPartition
+      GamesWithoutRenaming.table.cols.name must beColumn(tableName = "db.games", columnName = "name")
+      GamesWithoutRenaming.table.cols.year must beColumn(tableName = "db.games", columnName = "year", isPartitioning = true)
 
-      GamesWithoutRenaming.table.cols.name              must beColumn(tableName = "db.games", columnName = "name")
-      GamesWithoutRenaming.table.partitioning.cols.year must beColumn(tableName = "db.games", columnName = "year")
-
-      object GamesWithRenaming extends GamesWithPartition {
+      object GamesWithRenaming extends Games {
         override def fieldNameToColumnName = _.toUpperCase
       }
 
-      GamesWithRenaming.table.cols.name              must beColumn(tableName = "db.games", columnName = "NAME")
-      GamesWithRenaming.table.partitioning.cols.year must beColumn(tableName = "db.games", columnName = "YEAR")
+      GamesWithRenaming.table.cols.name must beColumn(tableName = "db.games", columnName = "NAME")
+      GamesWithRenaming.table.cols.year must beColumn(tableName = "db.games", columnName = "YEAR", isPartitioning = true)
     }
   }
 
@@ -52,22 +45,18 @@ class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation
     case class Columns(
       name:       Column[Str],
       score:      Column[Nullable[Num]],
-      isReleased: Column[Bool]
+      isReleased: Column[Bool],
+      year:       PartitioningColumn[Num]
     )
   }
 
-  trait PartitionByYear extends PartitioningDef {this: TableDef =>
-    case class Partition(
-      year: Column[Num]
-    )
-  }
-
-  private def beColumn[T <: Type : TypeTag](tableName: String, columnName: String): Matcher[Column[T]] = {c: Column[T] =>
+  private def beColumn[T <: Type : TypeTag](tableName: String, columnName: String, isPartitioning: Boolean = false): Matcher[Column[T]] = {c: Column[T] =>
     c must beAnInstanceOf[SourceColumn[T]]
     val sc = c.asInstanceOf[SourceColumn[T]]
 
-    sc.tableName must_== tableName
-    sc.name      must_== columnName
+    sc.tableName      must_== tableName
+    sc.name           must_== columnName
+    sc.isPartitioning must_== isPartitioning
 
     sc.columnTypeTag.tpe must beSameReflectTypeAs (typeOf[T])
   }

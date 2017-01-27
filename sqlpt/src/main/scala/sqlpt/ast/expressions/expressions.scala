@@ -164,18 +164,7 @@ case class Joined5
     Seq(rows1, rows2, rows3, rows4, rows5)
 }
 
-case class Table[Cols <: Product, Partitioning <: Table.Partitioning]
-(name: String, cols: Cols, partitioning: Partitioning) extends Rows[Cols]
-
-object Table {
-  sealed trait Partitioning
-  object Partitioning {
-    case object Unpartitioned extends Partitioning
-    case class  Partitioned[Cols <: Product](cols: Cols) extends Partitioning
-
-    type Unpartitioned = Unpartitioned.type
-  }
-}
+case class Table[Cols <: Product](name: String, cols: Cols) extends Rows[Cols]
 
 case class Grouped[GrpCols <: Product, Src <: Product](
   groupingCols:  GrpCols,

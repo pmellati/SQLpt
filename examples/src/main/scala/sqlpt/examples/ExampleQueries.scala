@@ -3,7 +3,7 @@ package sqlpt.examples
 import sqlpt.api._
 
 object ExampleQueries extends sqlpt.column.ColumnImplicits {
-  object CarLoans extends TableDef with NoPartitioning {
+  object CarLoans extends TableDef {
     val name = "car_loans"
 
     case class Columns(
@@ -12,7 +12,7 @@ object ExampleQueries extends sqlpt.column.ColumnImplicits {
     )
   }
 
-  object CreditCards extends TableDef with NoPartitioning {
+  object CreditCards extends TableDef {
     val name = "credit_cards"
 
     case class Columns(

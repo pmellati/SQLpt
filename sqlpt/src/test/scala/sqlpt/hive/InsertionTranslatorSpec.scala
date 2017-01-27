@@ -30,7 +30,7 @@ class InsertionTranslatorSpec extends Specification with NoTypedEqual with Table
   private def translateTo(hql: Hql): Matcher[Insertion] =
     beSameHqlAs(hql) ^^ Translators.insertion
 
-  private object ShippedItems extends TableDef with NoPartitioning {
+  private object ShippedItems extends TableDef {
     override def name: String = "db.shipped_items"
 
     case class Columns(

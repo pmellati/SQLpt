@@ -22,7 +22,7 @@ object Column {
   }
 
   // TODO: 'SourceColumn' doesn't have to be nested in 'Column'.
-  case class SourceColumn[T <: Type : TypeTag](tableName: String, name: String) extends Column[T] {
+  case class SourceColumn[T <: Type : TypeTag](tableName: String, name: String, isPartitioning: Boolean) extends Column[T] {
     def columnTypeTag: TypeTag[T] = implicitly
   }
 }

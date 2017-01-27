@@ -8,7 +8,7 @@ sealed trait Statement
 case class StringStatement(sql: String) extends Statement
 
 case class Insertion
-  (tableName: String, mode: Insertion.Mode, partition: Option[Product], selection: Selection[_ <: Product])
+  (outputTable: Table[_ <: Product], mode: Insertion.Mode, selection: Selection[_ <: Product])
   extends Statement {
   def overwrite(ifNotExists: Boolean = false) =
     copy(mode = Insertion.Mode.OverwriteTable(ifNotExists))
@@ -23,17 +23,9 @@ object Insertion {
 
   trait Implicits {
     implicit class UnpartitionedTableInsertOps[Cols <: Product]
-    (table: Table[Cols, Table.Partitioning.Unpartitioned]) {
+    (table: Table[Cols]) {
       def insert(selection: Selection[Cols]) =
-        Insertion(table.name, Mode.Into, None, selection)
-    }
-
-    implicit class PartitionedTableInsertOps[Cols <: Product, PartitionCols <: Product]
-    (table: Table[Cols, Table.Partitioning.Partitioned[PartitionCols]]) {
-      def insert(selection: Selection[Cols]) = new {
-        def intoPartition(partitionSelection: Cols => PartitionCols) =
-          Insertion(table.name, Mode.Into, Some(partitionSelection(selection.cols)), selection)
-      }
+        Insertion(table, Mode.Into, selection)
     }
   }
 }

@@ -9,7 +9,6 @@ import ColumnsTypeChecking._
 import ColumnTypeValidation._
 import org.specs2.matcher.NoTypedEqual
 import org.specs2.mutable
-import sqlpt.api.NoPartitioning
 
 // TODO: Tests may not be comprehensive.
 class ColumnsTypeCheckingSpec extends mutable.Specification with NoTypedEqual {
@@ -62,7 +61,7 @@ class ColumnsTypeCheckingSpec extends mutable.Specification with NoTypedEqual {
     }
   }
 
-  object Cars extends TableDef with NoPartitioning {
+  object Cars extends TableDef {
     override val name = "cars"
 
     case class Columns(

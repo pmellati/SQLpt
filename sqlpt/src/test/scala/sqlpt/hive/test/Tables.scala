@@ -4,10 +4,9 @@ import hivevalid.HiveValid
 import sqlpt.api._
 import sqlpt.column.Column, Column._
 import scala.reflect.runtime.universe._
-import sqlpt.ast.expressions.Table.Partitioning
 
 object Tables {
-  object Cars extends MyOrgTable with NoPartitioning {
+  object Cars extends MyOrgTable {
     override def name = "db.cars"
 
     case class Columns(
@@ -19,7 +18,7 @@ object Tables {
     )
   }
 
-  object CarMakers extends MyOrgTable with NoPartitioning {
+  object CarMakers extends MyOrgTable {
     override def name = "db.car_makers"
 
     case class Columns(
@@ -46,7 +45,7 @@ object Tables {
 }
 
 object TableCreator {
-  def createTable(table: Table[_ <: Product, _ <: Partitioning]): Unit = {
+  def createTable(table: Table[_ <: Product]): Unit = {
     val columnsDecls = table.cols.productIterator.toSeq.map {colAny =>
       val col = colAny.asInstanceOf[SourceColumn[_ <: Column.Type]]
 

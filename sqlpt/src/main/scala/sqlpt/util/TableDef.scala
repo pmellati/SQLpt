@@ -1,7 +1,7 @@
 package sqlpt.util
 
 import sqlpt.column._, Column._
-import sqlpt.ast.expressions.Table, Table.Partitioning.{Partitioned, Unpartitioned}
+import sqlpt.ast.expressions.Table
 import shapeless._, labelled.{FieldType, field}
 import annotation.implicitNotFound
 import reflect.runtime.universe.TypeTag
@@ -11,24 +11,19 @@ trait TableDef {
 
   def name: String
 
+  type Columns <: Product
+
   def fieldNameToColumnName: FieldNameToColName = identity
 
-  type Columns      <: Product
-  type Partitioning <: Table.Partitioning
-
-  def table(
-    implicit
-    columnsInst:      ColumnsProductInstantiator[Columns],
-    partitioningInst: PartitioningInstantiator[Partitioning]
-  ): Table[Columns, Partitioning] =
-    Table(
-      name,
-      columnsInst.columns(name, fieldNameToColumnName),
-      partitioningInst.partitioning(name, fieldNameToColumnName))
+  def table(implicit columnsInst: ColumnsProductInstantiator[Columns]): Table[Columns] =
+    Table(name, columnsInst.columns(name, fieldNameToColumnName))
 }
 
 object TableDef {
   type FieldNameToColName = String => String
+
+  sealed trait PartitioningColumnTag
+  type PartitioningColumn[+T <: Type] = Column[T] with PartitioningColumnTag
 
   @implicitNotFound(msg = "${T} seems to be an invalid product of columns.")
   trait ColumnsProductInstantiator[T] {
@@ -72,24 +67,13 @@ object TableDef {
     implicit def singleColumnInstantiator[T <: Type : TypeTag]: SingleColumnInstantiator[Column[T]] =
       new SingleColumnInstantiator[Column[T]] {
         def column(tableName: String, columnName: String): Column[T] =
-          SourceColumn(tableName, columnName)
+          SourceColumn(tableName, columnName, isPartitioning = false)
       }
-  }
 
-  @implicitNotFound(msg = "${P} seems to be an invalid 'Table.Partitioning'.")
-  trait PartitioningInstantiator[P <: Table.Partitioning] {
-    def partitioning(tableName: String, fieldNameToColumnName: FieldNameToColName): P
-  }
-
-  object PartitioningInstantiator {
-    implicit object UnpartitionedPartitioningInstantiator extends PartitioningInstantiator[Unpartitioned] {
-      override def partitioning(tableName: String, f2c: FieldNameToColName) = Unpartitioned
-    }
-
-    implicit def partitionedPartitioningInstantiator[P <: Product : ColumnsProductInstantiator]:
-    PartitioningInstantiator[Partitioned[P]] = new PartitioningInstantiator[Partitioned[P]] {
-      override def partitioning(tableName: String, f2c: FieldNameToColName) =
-        Partitioned(implicitly[ColumnsProductInstantiator[P]].columns(tableName, f2c))
-    }
+    implicit def singlePartitioningColInstantiator[T <: Type : TypeTag]: SingleColumnInstantiator[PartitioningColumn[T]] =
+      new SingleColumnInstantiator[PartitioningColumn[T]] {
+        def column(tableName: String, columnName: String): PartitioningColumn[T] =
+          SourceColumn(tableName, columnName, isPartitioning = true).asInstanceOf[PartitioningColumn[T]]
+      }
   }
 }

@@ -5,8 +5,8 @@ import sqlpt.column._, Column._, Type._
 object ColumnAlgebra extends ColumnImplicits {
   import AggregationFuncs.Max
 
-  val balance = SourceColumn[Num]("credit_cards", "balance")
-  val custId  = SourceColumn[Str]("credit_cards", "cust_id")
+  val balance = SourceColumn[Num]("credit_cards", "balance", false)
+  val custId  = SourceColumn[Str]("credit_cards", "cust_id", true)
 
   val tripledCol = balance * 3.0      // Should compile.
   val powerOfTwo = balance * balance
@@ -15,7 +15,7 @@ object ColumnAlgebra extends ColumnImplicits {
   val maxCustId = Max(custId)
 //    val tripledStr = custId * 3       // Shouldn't compile.
 
-  val custAge = SourceColumn[Nullable[Num]]("credit_cards", "cust_age")
+  val custAge = SourceColumn[Nullable[Num]]("credit_cards", "cust_age", false)
 
   custAge.isNull
 

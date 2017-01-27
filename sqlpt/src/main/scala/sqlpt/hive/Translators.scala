@@ -26,7 +26,7 @@ object Translators extends ColumnImplicits {
     val fromClause = {
       def src2Str(src: Rows[_ <: Product]): String = {
         val needsParentheses =
-          !src.isInstanceOf[Table[_, _]] && !src.isInstanceOf[Outer[_]]
+          !src.isInstanceOf[Table[_]] && !src.isInstanceOf[Outer[_]]
 
         val (optParenOpen, optParenClose) = needsParentheses ? ("(", ")") | ("", "")
 
@@ -109,17 +109,17 @@ object Translators extends ColumnImplicits {
     val partitions = ""
 
     s"""
-       |INSERT $insertMode TABLE ${insertion.tableName} $partitions $ifNotExists
+       |INSERT $insertMode TABLE ${insertion.outputTable.name} $partitions $ifNotExists
        |${selection(insertion.selection)}
      """.stripMargin.trim
   }
 
-  private def table: Translator[Table[_, _]] = _.name
+  private def table: Translator[Table[_]] = _.name
 
   private def rows: Translator[Rows[_ <: Product]] = {
     case selection: SimpleSelection[_, _] =>
       simpleSelection(selection)
-    case t: Table[_, _] =>
+    case t: Table[_] =>
       table(t)
     case Outer(r) =>
       rows(r)

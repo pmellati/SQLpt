@@ -6,7 +6,7 @@ import ast.{statements  => stmt}
 package object api extends column.ColumnImplicits with stmt.Insertion.Implicits {
   type Selection[Cols <: Product] = expr.Selection[Cols]
 
-  type Table[Cols <: Product, Partitioning <: expr.Table.Partitioning] = expr.Table[Cols, Partitioning]
+  type Table[Cols <: Product] = expr.Table[Cols]
   val  Table = expr.Table
 
   type Statement       = stmt.Statement
@@ -21,12 +21,14 @@ package object api extends column.ColumnImplicits with stmt.Insertion.Implicits 
 
   def withTempTable[Cols <: Product, R]
   (selection: Selection[Cols])
-  (action: (=> Table[Cols, expr.Table.Partitioning.Unpartitioned]) => Statements) =
+  (action: (=> Table[Cols]) => Statements) =
     util.Misc.withTempTable[Cols, R](selection)(action)
 
-  type TableDef        = util.TableDef
-  type PartitioningDef = util.PartitioningDef
-  type NoPartitioning  = util.NoPartitioning
+  type TableDef = util.TableDef
+  type PartitioningColumn[+T <: column.Column.Type] = util.TableDef.PartitioningColumn[T]
+
+  def partition[T <: column.Column.Type](c: Column[T]): Column[T] with util.TableDef.PartitioningColumnTag =
+    c.asInstanceOf[Column[T] with util.TableDef.PartitioningColumnTag]
 
   type Column[+T <: column.Column.Type] = column.Column[T]
   val  Column                           = column.Column

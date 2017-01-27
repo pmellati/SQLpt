@@ -2,16 +2,16 @@ package sqlpt.util
 
 import java.util.UUID.randomUUID
 
-import sqlpt.ast.expressions.{Selection, Table}, Table.Partitioning.Unpartitioned
+import sqlpt.ast.expressions.{Selection, Table}
 import sqlpt.ast.statements._, Statements._
 
 object Misc extends Insertion.Implicits {
   def withTempTable[Cols <: Product, R]
-  (selection: Selection[Cols])(action: (=> Table[Cols, Unpartitioned]) => Statements): Statements = {
+  (selection: Selection[Cols])(action: (=> Table[Cols]) => Statements): Statements = {
     val uniqueTempTableName =
       "sqlpt_temp_table_" + randomUUID
 
-    val tempTable = Table(uniqueTempTableName, selection.cols, Unpartitioned)
+    val tempTable = Table(uniqueTempTableName, selection.cols)
 
     statements(
       // TODO: There may be existing code in tests to generate table DDL from `Table` instances.
