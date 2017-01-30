@@ -46,14 +46,17 @@ object Tables {
 
 object TableCreator {
   def createTable(table: Table[_ <: Product]): Unit = {
-    val columnsDecls = table.cols.productIterator.toSeq.map {colAny =>
-      val col = colAny.asInstanceOf[SourceColumn[_ <: Column.Type]]
+    val allCols = table.cols.productIterator.toSeq.asInstanceOf[Seq[SourceColumn[_ <: Column.Type]]]
 
-      s"${col.name} ${hqlTypeNameOf(col)}"
-    }
+    def declarationStringOf(cols: Seq[SourceColumn[_ <: Column.Type]]) =
+      cols.map {col => s"${col.name} ${hqlTypeNameOf(col)}"}.mkString(", ")
+
+    val nonPartitioningColsDecl = declarationStringOf(allCols.filterNot(_.isPartitioning))
+    val partitioningColsDecl    = declarationStringOf(allCols.filter(_.isPartitioning))
 
     HiveValid.runMeta(s"""
-      |CREATE TABLE IF NOT EXISTS ${table.name} ( ${columnsDecls.mkString(", ")} )
+      |CREATE TABLE IF NOT EXISTS ${table.name} ( $nonPartitioningColsDecl )
+      |${if (partitioningColsDecl.isEmpty) "" else s"""PARTITIONED BY ( $partitioningColsDecl )"""}
       |ROW FORMAT DELIMITED
       |FIELDS TERMINATED BY '\t'
       |LINES TERMINATED BY '\n'
