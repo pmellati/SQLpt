@@ -62,6 +62,9 @@ class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation
   }
 
   private def beSameReflectTypeAs(t2: ReflectType): Matcher[ReflectType] = {t1: ReflectType =>
+    // Type equivalence checking is buggy. Workaround: do 100 fake checks here to "warm up" the types.
+    (1 to 100) foreach {_ => t1 =:= t2}
+
     (t1 =:= t2, s"Type $t1 wasn't the same as Type $t2.")
   }
 }
