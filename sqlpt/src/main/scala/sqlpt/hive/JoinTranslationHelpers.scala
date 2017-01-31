@@ -1,10 +1,7 @@
 package sqlpt.hive
 
 import sqlpt.ast.expressions.{BaseJoined, JoinMode, Rows}
-import sqlpt.column.Arithmetic.Equals
-import sqlpt.column.Column
-import sqlpt.column.Column.{SourceColumn, Type}
-import sqlpt.column.Column.Type._
+import sqlpt.column._, Column._, Type._, Literals._, Arithmetic._
 
 object JoinTranslationHelpers {
   type Affinity      = Int
@@ -48,7 +45,9 @@ object JoinTranslationHelpers {
       Seq(sourceColumn)
     case Equals(left, right) =>
       sourceColumnsInColumn(left) ++ sourceColumnsIn(right)
-    case _ =>
-      ???   // TODO
+    case LiteralStr(_) | LiteralNum(_) =>
+      Seq.empty
+    case other => // TODO
+      sys.error(s"Not implemented: $other")
   }
 }

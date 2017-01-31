@@ -38,9 +38,9 @@ class InsertionTranslatorSpec extends Specification with NoTypedEqual with Table
         ))
       ) must translateTo("""
         |INSERT INTO TABLE db.shipped_items_partitioned
-        |PARTITION (year="2004", batchId="myBatch")
+        |PARTITION (year=2004.0, batchId="myBatch")
         |SELECT "Black Mesa", A.price
-        |FROM   db.shipped_items_partitioned A
+        |FROM   db.cars A
       """.stripMargin)
     }
   }

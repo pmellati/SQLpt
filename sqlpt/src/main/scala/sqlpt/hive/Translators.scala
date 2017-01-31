@@ -106,11 +106,41 @@ object Translators extends ColumnImplicits {
         ("OVERWRITE", ifNotExs ? "IF NOT EXISTS" | "")
     }
 
-    val partitions = ""
+    val (partition, updatedSelection) = {
+      val outputTableSourceColsWithIndex =
+        insertion.outputTable.cols.productIterator.toSeq.asInstanceOf[Seq[SourceColumn[_ <: Type]]].zipWithIndex
+
+      val (outTablePartitioningColsWithIndex, outTableNonPartitioningColsWithIndex) =
+        outputTableSourceColsWithIndex.partition {case (col, _) => col.isPartitioning}
+
+      val partColsNames = outTablePartitioningColsWithIndex.map {case (col, _) => col.name}
+
+      val partColsIndices = outTablePartitioningColsWithIndex.map {_._2}
+
+      val selectionCols = insertion.selection.cols.productIterator.toSeq.asInstanceOf[Seq[Column[_ <: Type]]]
+
+      val selectionPartitioningCols = partColsIndices map {selectionCols(_)}
+
+      val affinities = affinitiesOf(insertion.selection)
+      val selectionPartitioningColsHqls = selectionPartitioningCols map {c => singleColumn(c, affinities)}
+
+      val partitionsAssignments = partColsNames zip selectionPartitioningColsHqls map {case (name, expr) =>
+        s"""$name=$expr"""
+      }
+
+      val outTableNonPartitioningColsIndices = outTableNonPartitioningColsWithIndex.map {case (_, idx) => idx}
+
+      val updatedSelection = insertion.selection.keepColsAtIndices(outTableNonPartitioningColsIndices)
+
+      val partitionClause =
+        outTablePartitioningColsWithIndex.isEmpty ? "" | s"""\nPARTITION ( ${partitionsAssignments mkString ", "} )"""
+
+      (partitionClause, updatedSelection)
+    }
 
     s"""
-       |INSERT $insertMode TABLE ${insertion.outputTable.name} $partitions $ifNotExists
-       |${selection(insertion.selection)}
+       |INSERT $insertMode TABLE ${insertion.outputTable.name} $partition $ifNotExists
+       |${selection(updatedSelection)}
      """.stripMargin.trim
   }
 
@@ -175,4 +205,19 @@ object Translators extends ColumnImplicits {
 
   private def affinityToLetter(affinity: Affinity): String =
     ('A' to 'Z')(affinity).toString
+
+  private implicit class SelectionFilterCols(s: Selection[_ <: Product]) {
+    def keepColsAtIndices(indicesToKeep: Seq[Int]): Selection[_ <: Product] = s match {
+      case ss: SimpleSelection[_, _] =>
+        ss.copy(cols = keep(ss.cols, indicesToKeep))
+
+      case as: AggrSelection[_, _, _] =>
+        as.copy(cols = keep(as.cols, indicesToKeep))
+    }
+
+    private def keep(cols: Product, indicesToKeep: Seq[Int]): Product = {
+      val colsList = cols.productIterator.toList
+      indicesToKeep.map(colsList(_)).toList
+    }
+  }
 }
