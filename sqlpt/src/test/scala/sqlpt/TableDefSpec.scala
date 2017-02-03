@@ -7,35 +7,55 @@ import sqlpt.column.Column.SourceColumn
 
 import reflect.runtime.universe.{Type => ReflectType, _}
 
+import shapeless._
+import util.NoDup._
+
 class TableDefSpec extends Specification with NoTypedEqual with MatchersCreation {
-  "Util.TableDef" should {
-    "properly instantiate its 'Columns' case class" in {
-      object Games extends Games
+//  "Util.TableDef" should {
+//    "properly instantiate its 'Columns' case class" in {
+//      object Games extends Games
+//
+//      val generatedColumns = Games.table.cols
+//
+//      generatedColumns.productArity must_== 4
+//
+//      generatedColumns must beAnInstanceOf[Games.Columns]
+//
+//      generatedColumns.name       must beColumn(tableName = "db.games", columnName = "name")
+//      generatedColumns.score      must beColumn(tableName = "db.games", columnName = "score")
+//      generatedColumns.isReleased must beColumn(tableName = "db.games", columnName = "isReleased")
+//      generatedColumns.year       must beColumn(tableName = "db.games", columnName = "year", isPartitioning = true)
+//    }
+//
+//    "utilise its fieldNameToColumnName translation" in {
+//      object GamesWithoutRenaming extends Games
+//
+//      GamesWithoutRenaming.table.cols.name must beColumn(tableName = "db.games", columnName = "name")
+//      GamesWithoutRenaming.table.cols.year must beColumn(tableName = "db.games", columnName = "year", isPartitioning = true)
+//
+//      object GamesWithRenaming extends Games {
+//        override def fieldNameToColumnName = _.toUpperCase
+//      }
+//
+//      GamesWithRenaming.table.cols.name must beColumn(tableName = "db.games", columnName = "NAME")
+//      GamesWithRenaming.table.cols.year must beColumn(tableName = "db.games", columnName = "YEAR", isPartitioning = true)
+//    }
+//  }
 
-      val generatedColumns = Games.table.cols
+  "Shapeless stuff" should {
+    "determine if an HList has unique types only" in {
+//      the[HasUniqueTypes[HNil]]
 
-      generatedColumns.productArity must_== 4
+//      the[HasUniqueTypes[Int :: String :: HNil]]
 
-      generatedColumns must beAnInstanceOf[Games.Columns]
+      case class Simple(name: Column[Str], age: Column[Num])
 
-      generatedColumns.name       must beColumn(tableName = "db.games", columnName = "name")
-      generatedColumns.score      must beColumn(tableName = "db.games", columnName = "score")
-      generatedColumns.isReleased must beColumn(tableName = "db.games", columnName = "isReleased")
-      generatedColumns.year       must beColumn(tableName = "db.games", columnName = "year", isPartitioning = true)
-    }
+      case class Complex(price: Column[Num], simple: Simple)
 
-    "utilise its fieldNameToColumnName translation" in {
-      object GamesWithoutRenaming extends Games
+      Flattener[Simple]
+      Flattener[Complex]
 
-      GamesWithoutRenaming.table.cols.name must beColumn(tableName = "db.games", columnName = "name")
-      GamesWithoutRenaming.table.cols.year must beColumn(tableName = "db.games", columnName = "year", isPartitioning = true)
-
-      object GamesWithRenaming extends Games {
-        override def fieldNameToColumnName = _.toUpperCase
-      }
-
-      GamesWithRenaming.table.cols.name must beColumn(tableName = "db.games", columnName = "NAME")
-      GamesWithRenaming.table.cols.year must beColumn(tableName = "db.games", columnName = "YEAR", isPartitioning = true)
+      pending
     }
   }
 
