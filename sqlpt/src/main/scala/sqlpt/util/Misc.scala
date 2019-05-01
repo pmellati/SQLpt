@@ -16,7 +16,7 @@ object Misc extends Insertion.Implicits {
     statements(
       // TODO: There may be existing code in tests to generate table DDL from `Table` instances.
       StringStatement(s"""
-        |CREATE TALBE $uniqueTempTableName
+        |CREATE TABLE $uniqueTempTableName
         |ROW FORMAT DELIMITED FIELDS
         |TERMINATED BY '|'
         |STORED AS TEXTFILE
